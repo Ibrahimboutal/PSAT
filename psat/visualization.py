@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.animation as animation
 
 def plot_trajectories(trajectories, domain_limits, num_particles_to_plot=100, save_path=None):
-    ((xmin, xmax), (ymin, ymax)) = domain_limits
+    ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = domain_limits
     plt.figure(figsize=(10, 4))
     
     n_particles = trajectories.shape[1]
@@ -17,8 +18,8 @@ def plot_trajectories(trajectories, domain_limits, num_particles_to_plot=100, sa
     plt.xlim(xmin, xmax)
     plt.ylim(ymin, ymax)
     plt.xlabel("Axial Position x (m)")
-    plt.ylabel("Radial Position y (m)")
-    plt.title("Aerosol Particle Trajectories in Airway")
+    plt.ylabel("Radial Position y (m) [2D Projection]")
+    plt.title("Aerosol Particle Trajectories in 3D Airway (X-Y Plane)")
     plt.grid(True, linestyle='--', alpha=0.6)
     
     if save_path:
@@ -28,7 +29,7 @@ def plot_trajectories(trajectories, domain_limits, num_particles_to_plot=100, sa
     plt.close()
 
 def plot_deposition(final_positions, domain_limits, wall_deposit=None, bottom_deposit=None, save_path=None):
-    ((xmin, xmax), (ymin, ymax)) = domain_limits
+    ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = domain_limits
     plt.figure(figsize=(10, 4))
     
     if wall_deposit is not None:
@@ -55,10 +56,9 @@ def plot_deposition(final_positions, domain_limits, wall_deposit=None, bottom_de
         plt.show()
     plt.close()
 
-import matplotlib.animation as animation
 
 def animate_trajectories(trajectories, domain_limits, num_particles_to_plot=100, save_path="simulation.gif", fps=30):
-    ((xmin, xmax), (ymin, ymax)) = domain_limits
+    ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = domain_limits
     fig, ax = plt.subplots(figsize=(10, 4))
     
     n_steps, n_particles, _ = trajectories.shape
@@ -67,8 +67,8 @@ def animate_trajectories(trajectories, domain_limits, num_particles_to_plot=100,
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
     ax.set_xlabel("Axial Position x (m)")
-    ax.set_ylabel("Radial Position y (m)")
-    ax.set_title("Aerosol Particle Trajectories in Airway")
+    ax.set_ylabel("Radial Position y (m) [2D Projection]")
+    ax.set_title("Aerosol Particle Trajectories in 3D Airway (X-Y Plane)")
     ax.grid(True, linestyle='--', alpha=0.6)
     
     scat = ax.scatter([], [], s=2, alpha=0.5, color='blue')
