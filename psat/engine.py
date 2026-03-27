@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import numba
 
+from psat.constants import k_B, g, lambda_air, e_charge
+
 def bifurcating_flow_3d(x, y, z, L1=0.05, R=0.01, theta=np.pi/6, umax=0.5):
     """
     3D Flow in a Y-Branching pipe.
@@ -25,16 +27,12 @@ def bifurcating_flow_3d(x, y, z, L1=0.05, R=0.01, theta=np.pi/6, umax=0.5):
     
     return ux, uy, uz
 
-# Physical constants
-k_B = 1.380649e-23  # Boltzmann constant, J/K
-g = 9.81            # Acceleration due to gravity, m/s^2
-
 @numba.njit(fastmath=True)
 def jitted_physics_core(x_act, y_act, z_act, ux, uy, uz,
                         tau_act, D_act, Z_act, 
                         v_th_x, v_th_y, v_th_z,
                         Ex, Ey, Ez, dt, gravity,
-                        xmin, xmax, ymax):
+                        xmin, xmax, ymax, L1, theta):
     """
     High-performance compiled subset of the Euler-Maruyama simulation step.
     By extracting this from the class, Numba compiles it directly to C/LLVM.
@@ -47,10 +45,8 @@ def jitted_physics_core(x_act, y_act, z_act, ux, uy, uz,
     hit_wall = np.zeros(n_active, dtype=np.bool_)
     hit_bottom = np.zeros(n_active, dtype=np.bool_)
     
-    L1 = 0.05
     R_main = ymax
     R_branch = R_main / np.sqrt(2.0)
-    theta = np.pi / 6.0
     cos_theta = np.cos(theta)
     tan_theta = np.tan(theta)
     
@@ -137,7 +133,6 @@ class AerosolSimulation:
             
         # Particle properties
         self.mass = particle_density * (np.pi / 6.0) * (self.dp ** 3)
-        lambda_air = 6.64e-8 
         knudsen = 2 * lambda_air / self.dp
         self.Cc = 1 + knudsen * (1.257 + 0.4 * np.exp(-1.1 / knudsen))
         
@@ -156,7 +151,6 @@ class AerosolSimulation:
         
         # Electrostatic drift
         # Electrical mobility Z = (q * e * Cc) / (3 * pi * mu * dp)
-        e_charge = 1.602e-19
         self.Z_mobility = (q_charges * e_charge * self.Cc) / (3 * np.pi * self.mu * self.dp)
         
         # Fluid velocity field
@@ -188,44 +182,7 @@ class AerosolSimulation:
         self.positions[:, 2] = z_coords
         self.trajectories[0] = self.positions.copy()
         
-    def check_boundaries(self, x, y, z):
-        """
-        Check if particles hit the Y-Branch complex geometry boundaries.
-        Returns boolean masks for (hit_wall, hit_bottom)
-        """
-        hit_wall = np.zeros_like(x, dtype=bool)
-        ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = self.domain_limits
-        
-        L1 = 0.05 # Bifurcation point
-        R_main = ymax
-        R_branch = R_main / np.sqrt(2) # Conserve area
-        theta = np.pi / 6 # 30 degree branch angle
-        
-        # Section 1: Main Pipe
-        mask_main = x <= L1
-        hit_wall[mask_main] = (y[mask_main]**2 + z[mask_main]**2 >= R_main**2)
-        
-        # Section 2: Bifurcation Branches
-        mask_branch = x > L1
-        x_b = x[mask_branch] - L1
-        y_b = y[mask_branch]
-        z_b = z[mask_branch]
-        
-        yc_up = x_b * np.tan(theta)
-        yc_down = -x_b * np.tan(theta)
-        
-        # Distance to center of respective branch cylinder
-        dist_up2 = (y_b - yc_up)**2 * np.cos(theta)**2 + z_b**2
-        dist_down2 = (y_b - yc_down)**2 * np.cos(theta)**2 + z_b**2
-        
-        # If the particle is outside BOTH branches, it hit the carved wall
-        hit_wall[mask_branch] = (dist_up2 >= R_branch**2) & (dist_down2 >= R_branch**2)
-        
-        hit_bottom = x >= xmax
-        
-        return hit_wall, hit_bottom
-
-    def step(self, step_idx):
+    def step(self, step_idx, L1=0.05, theta=np.pi/6):
         active = ~self.is_deposited
         if not np.any(active):
             return
@@ -247,7 +204,7 @@ class AerosolSimulation:
             np.float64(self.v_th[0]), np.float64(self.v_th[1]), np.float64(self.v_th[2]),
             np.float64(self.E_field[0]), np.float64(self.E_field[1]), np.float64(self.E_field[2]),
             self.dt, g,
-            xmin, xmax, ymax
+            xmin, xmax, ymax, L1, theta
         )
         
         deposited_this_step = hit_wall | hit_bottom | (x_new <= xmin)
@@ -266,9 +223,12 @@ class AerosolSimulation:
         
         self.trajectories[step_idx] = self.positions.copy()
         
-    def run(self):
+    def run(self, L1=0.05, theta=np.pi/6):
         for i in range(1, self.n_steps + 1):
-            self.step(i)
+            self.step(i, L1=L1, theta=theta)
+            if not np.any(~self.is_deposited):
+                self.trajectories = self.trajectories[:i + 1]
+                break
 
     def deposition_efficiency(self):
         return np.sum(self.is_deposited) / self.N

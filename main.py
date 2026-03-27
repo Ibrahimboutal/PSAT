@@ -1,7 +1,7 @@
 import numpy as np
 import argparse
 import json
-from psat.engine import AerosolSimulation
+from psat.engine import AerosolSimulation, bifurcating_flow_3d
 from psat.visualization import plot_trajectories, plot_deposition
 
 def main():
@@ -10,6 +10,10 @@ def main():
     parser.add_argument("--mean-diameter", type=float, default=5e-6, help="Geometric Mean particle diameter (meters)")
     parser.add_argument("--geo-std-dev", type=float, default=1.5, help="Geometric Standard Deviation (1.0 = monodisperse)")
     parser.add_argument("--time", type=float, default=0.4, help="Total simulation time in seconds")
+    
+    # Geometry Flags
+    parser.add_argument("--L1", type=float, default=0.05, help="Length of the main pipe (m)")
+    parser.add_argument("--theta", type=float, default=np.pi/6, help="Bifurcation angle (radians)")
     
     # Advanced Physics Flags
     parser.add_argument("--grad-t", type=float, nargs=3, default=[0.0, 0.0, 0.0], help="Temperature gradient vector (K/m)")
@@ -43,14 +47,14 @@ def main():
         E_field=tuple(args.e_field),
         q_charges=args.q_charges,
         eddy_diffusivity=args.eddy_diff,
-        fluid_velocity_func=None  # defaults to the new bifurcating_flow_3d
+        fluid_velocity_func=lambda x, y, z: bifurcating_flow_3d(x, y, z, L1=args.L1, theta=args.theta)
     )
     
     print("Setting up initial conditions...")
     sim.initialize_particles()
     
     print("Running simulation...")
-    sim.run()
+    sim.run(L1=args.L1, theta=args.theta)
     
     dep_eff = sim.deposition_efficiency()
     wall_dep = sim.wall_deposition_fraction()

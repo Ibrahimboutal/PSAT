@@ -4,7 +4,8 @@ import matplotlib.animation as animation
 
 def plot_trajectories(trajectories, domain_limits, num_particles_to_plot=100, save_path=None):
     ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = domain_limits
-    plt.figure(figsize=(10, 4))
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
     
     n_particles = trajectories.shape[1]
     plot_idx = np.random.choice(n_particles, min(n_particles, num_particles_to_plot), replace=False)
@@ -12,15 +13,17 @@ def plot_trajectories(trajectories, domain_limits, num_particles_to_plot=100, sa
     for idx in plot_idx:
         x = trajectories[:, idx, 0]
         y = trajectories[:, idx, 1]
+        z = trajectories[:, idx, 2]
         
-        plt.plot(x, y, alpha=0.5, linewidth=0.8)
+        ax.plot(x, y, z, alpha=0.5, linewidth=0.8)
         
-    plt.xlim(xmin, xmax)
-    plt.ylim(ymin, ymax)
-    plt.xlabel("Axial Position x (m)")
-    plt.ylabel("Radial Position y (m) [2D Projection]")
-    plt.title("Aerosol Particle Trajectories in 3D Airway (X-Y Plane)")
-    plt.grid(True, linestyle='--', alpha=0.6)
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+    ax.set_zlim(zmin, zmax)
+    ax.set_xlabel("Axial Position x (m)")
+    ax.set_ylabel("Radial Position y (m)")
+    ax.set_zlabel("Depth Position z (m)")
+    ax.set_title("Aerosol Particle Trajectories in 3D Airway")
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -59,24 +62,27 @@ def plot_deposition(final_positions, domain_limits, wall_deposit=None, bottom_de
 
 def animate_trajectories(trajectories, domain_limits, num_particles_to_plot=100, save_path="simulation.gif", fps=30):
     ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = domain_limits
-    fig, ax = plt.subplots(figsize=(10, 4))
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
     
     n_steps, n_particles, _ = trajectories.shape
     plot_idx = np.random.choice(n_particles, min(n_particles, num_particles_to_plot), replace=False)
     
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
+    ax.set_zlim(zmin, zmax)
     ax.set_xlabel("Axial Position x (m)")
-    ax.set_ylabel("Radial Position y (m) [2D Projection]")
-    ax.set_title("Aerosol Particle Trajectories in 3D Airway (X-Y Plane)")
-    ax.grid(True, linestyle='--', alpha=0.6)
+    ax.set_ylabel("Radial Position y (m)")
+    ax.set_zlabel("Depth Position z (m)")
+    ax.set_title("Aerosol Particle Trajectories in 3D Airway")
     
-    scat = ax.scatter([], [], s=2, alpha=0.5, color='blue')
+    scat = ax.scatter([], [], [], s=2, alpha=0.5, color='blue')
     
     def update(frame):
         x = trajectories[frame, plot_idx, 0]
         y = trajectories[frame, plot_idx, 1]
-        scat.set_offsets(np.c_[x, y])
+        z = trajectories[frame, plot_idx, 2]
+        scat._offsets3d = (x, y, z)
         return scat,
 
     # Reduce frames to save rendering time if simulation is very long

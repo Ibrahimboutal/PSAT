@@ -23,7 +23,7 @@ Ensure you have Python 3 installed, then install the required dependencies:
 pip install -r requirements.txt
 ```
 
-*(Requires `numpy` and `matplotlib`)*
+*(Requires `numpy`, `matplotlib`, and `numba`)*
 
 ## Usage
 
