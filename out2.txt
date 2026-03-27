@@ -1,0 +1,152 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.6, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\Ibrah\PSAT
+plugins: anyio-4.11.0, langsmith-0.3.2
+collected 3 items
+
+tests\test_physics.py FFF                                                [100%]
+
+================================== FAILURES ===================================
+___________________________ test_terminal_velocity ____________________________
+
+    def test_terminal_velocity():
+        """Test that a particle falls precisely at terminal velocity under gravity."""
+        sim = AerosolSimulation(
+            num_particles=1,
+            dt=0.01,
+            total_time=0.1,
+            domain_limits=((0, 1), (-1, 1), (-1, 1)),
+            mean_diameter=10e-6,
+            fluid_velocity_func=lambda x, y, z: (np.zeros_like(x), np.zeros_like(y), np.zeros_like(z)),
+            eddy_diffusivity=0.0
+        )
+        sim.D_total[:] = 0.0  # Turn off Brownian motion for a deterministic test
+    
+        sim.initialize_particles(x_coords=np.array([0.0]), y_coords=np.array([0.0]), z_coords=np.array([0.0]))
+    
+        # Run a single step
+>       sim.step(1)
+
+tests\test_physics.py:22: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <psat.engine.AerosolSimulation object at 0x000001ACBB530800>
+step_idx = 1, L1 = 0.05, theta = 0.5235987755982988
+
+    def step(self, step_idx, L1=0.05, theta=np.pi/6):
+        active = ~self.is_deposited
+        if not np.any(active):
+            return
+    
+        x_act = self.positions[active, 0]
+        y_act = self.positions[active, 1]
+        z_act = self.positions[active, 2]
+    
+        # 1. Advection (Python level to support dynamic custom flow functions)
+        ux, uy, uz = self.fluid_velocity_func(x_act, y_act, z_act)
+    
+        # 2 & 3. Advanced Drifts + Diffusion + Boundary Checks (JIT Compiled in C)
+        ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = self.domain_limits
+    
+>       n_act = len(active_indices)
+                    ^^^^^^^^^^^^^^
+E       UnboundLocalError: cannot access local variable 'active_indices' where it is not associated with a value
+
+psat\engine.py:208: UnboundLocalError
+___________________________ test_mass_conservation ____________________________
+
+    def test_mass_conservation():
+        """Test that the number of deposited and active particles always sums to N."""
+        sim = AerosolSimulation(
+            num_particles=100,
+            dt=0.01,
+            total_time=0.2,
+            domain_limits=((0, 0.05), (-0.01, 0.01), (-0.01, 0.01)),
+            fluid_velocity_func=lambda x, y, z: (np.ones_like(x)*0.5, np.zeros_like(y), np.zeros_like(z))
+        )
+        sim.initialize_particles()
+>       sim.run()
+
+tests\test_physics.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+psat\engine.py:246: in run
+    self.step(i, L1=L1, theta=theta)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <psat.engine.AerosolSimulation object at 0x000001ACAB88A630>
+step_idx = 1, L1 = 0.05, theta = 0.5235987755982988
+
+    def step(self, step_idx, L1=0.05, theta=np.pi/6):
+        active = ~self.is_deposited
+        if not np.any(active):
+            return
+    
+        x_act = self.positions[active, 0]
+        y_act = self.positions[active, 1]
+        z_act = self.positions[active, 2]
+    
+        # 1. Advection (Python level to support dynamic custom flow functions)
+        ux, uy, uz = self.fluid_velocity_func(x_act, y_act, z_act)
+    
+        # 2 & 3. Advanced Drifts + Diffusion + Boundary Checks (JIT Compiled in C)
+        ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = self.domain_limits
+    
+>       n_act = len(active_indices)
+                    ^^^^^^^^^^^^^^
+E       UnboundLocalError: cannot access local variable 'active_indices' where it is not associated with a value
+
+psat\engine.py:208: UnboundLocalError
+___________________ test_deterministic_bounds_no_diffusion ____________________
+
+    def test_deterministic_bounds_no_diffusion():
+        """Test that setting diffusion to 0 produces deterministic bounds outputs."""
+        sim = AerosolSimulation(
+            num_particles=10,
+            dt=0.001,
+            total_time=0.01,
+            domain_limits=((0, 0.1), (-0.01, 0.01), (-0.01, 0.01)),
+            fluid_velocity_func=lambda x, y, z: (np.ones_like(x)*0.1, np.zeros_like(y), np.zeros_like(z)),
+            eddy_diffusivity=0.0
+        )
+        sim.D_total[:] = 0.0  # Force zero diffusion
+    
+        # Start all particles precisely at the same spot
+        x_init = np.zeros(10)
+        y_init = np.zeros(10)
+        z_init = np.zeros(10)
+        sim.initialize_particles(x_coords=x_init, y_coords=y_init, z_coords=z_init)
+    
+        for i in range(1, 10):
+>           sim.step(i)
+
+tests\test_physics.py:68: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <psat.engine.AerosolSimulation object at 0x000001ACBB6C7BF0>
+step_idx = 1, L1 = 0.05, theta = 0.5235987755982988
+
+    def step(self, step_idx, L1=0.05, theta=np.pi/6):
+        active = ~self.is_deposited
+        if not np.any(active):
+            return
+    
+        x_act = self.positions[active, 0]
+        y_act = self.positions[active, 1]
+        z_act = self.positions[active, 2]
+    
+        # 1. Advection (Python level to support dynamic custom flow functions)
+        ux, uy, uz = self.fluid_velocity_func(x_act, y_act, z_act)
+    
+        # 2 & 3. Advanced Drifts + Diffusion + Boundary Checks (JIT Compiled in C)
+        ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = self.domain_limits
+    
+>       n_act = len(active_indices)
+                    ^^^^^^^^^^^^^^
+E       UnboundLocalError: cannot access local variable 'active_indices' where it is not associated with a value
+
+psat\engine.py:208: UnboundLocalError
+=========================== short test summary info ===========================
+FAILED tests/test_physics.py::test_terminal_velocity - UnboundLocalError: can...
+FAILED tests/test_physics.py::test_mass_conservation - UnboundLocalError: can...
+FAILED tests/test_physics.py::test_deterministic_bounds_no_diffusion - Unboun...
+============================== 3 failed in 3.11s ==============================

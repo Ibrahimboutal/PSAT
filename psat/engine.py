@@ -32,18 +32,14 @@ def jitted_physics_core(x_act, y_act, z_act, ux, uy, uz,
                         tau_act, D_act, Z_act, 
                         v_th_x, v_th_y, v_th_z,
                         Ex, Ey, Ez, dt, gravity,
-                        xmin, xmax, ymax, L1, theta):
+                        xmin, xmax, ymax, L1, theta,
+                        x_new, y_new, z_new, hit_wall, hit_bottom):
     """
     High-performance compiled subset of the Euler-Maruyama simulation step.
     By extracting this from the class, Numba compiles it directly to C/LLVM.
+    Pre-allocated arrays are passed in by reference to avoid continuous memory reallocation overhead.
     """
     n_active = len(x_act)
-    
-    x_new = np.empty(n_active, dtype=np.float64)
-    y_new = np.empty(n_active, dtype=np.float64)
-    z_new = np.empty(n_active, dtype=np.float64)
-    hit_wall = np.zeros(n_active, dtype=np.bool_)
-    hit_bottom = np.zeros(n_active, dtype=np.bool_)
     
     R_main = ymax
     R_branch = R_main / np.sqrt(2.0)
@@ -96,14 +92,12 @@ def jitted_physics_core(x_act, y_act, z_act, ux, uy, uz,
         z_new[i] = nz
         hit_wall[i] = hw
         hit_bottom[i] = hb
-        
-    return x_new, y_new, z_new, hit_wall, hit_bottom
 
 class AerosolSimulation:
     def __init__(self, num_particles, dt, total_time, domain_limits,
                  mean_diameter=1e-6, geo_std_dev=1.0, particle_density=1000,
                  fluid_velocity_func=None, T=293.15, mu=1.81e-5,
-                 grad_T=(0.0, 0.0, 0.0), E_field=(0.0, 0.0, 0.0), q_charges=0, eddy_diffusivity=0.0):
+                 grad_T=(0.0, 0.0, 0.0), E_field=(0.0, 0.0, 0.0), q_charges=0, eddy_diffusivity=0.0, save_trajectories=False):
         """
         Initialize the 3D Monte Carlo simulation for aerosol transport.
 
@@ -159,12 +153,24 @@ class AerosolSimulation:
         else:
             self.fluid_velocity_func = fluid_velocity_func
             
+        # Pre-allocate Numba Buffers for optimization (hot path)
+        self.x_buf = np.empty(self.N, dtype=np.float64)
+        self.y_buf = np.empty(self.N, dtype=np.float64)
+        self.z_buf = np.empty(self.N, dtype=np.float64)
+        self.hw_buf = np.empty(self.N, dtype=np.bool_)
+        self.hb_buf = np.empty(self.N, dtype=np.bool_)
+        
         # State Arrays
         self.positions = np.zeros((self.N, 3))
         self.is_deposited = np.zeros(self.N, dtype=bool)
         self.wall_deposit = np.zeros(self.N, dtype=bool)
         self.bottom_deposit = np.zeros(self.N, dtype=bool)
-        self.trajectories = np.zeros((self.n_steps + 1, self.N, 3))
+        
+        self.save_trajectories = save_trajectories
+        if self.save_trajectories:
+            self.trajectories = np.zeros((self.n_steps + 1, self.N, 3))
+        else:
+            self.trajectories = None
         
     def initialize_particles(self, x_coords=None, y_coords=None, z_coords=None):
         ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = self.domain_limits
@@ -180,7 +186,9 @@ class AerosolSimulation:
         self.positions[:, 0] = x_coords
         self.positions[:, 1] = y_coords
         self.positions[:, 2] = z_coords
-        self.trajectories[0] = self.positions.copy()
+        
+        if self.save_trajectories:
+            self.trajectories[0] = self.positions.copy()
         
     def step(self, step_idx, L1=0.05, theta=np.pi/6):
         active = ~self.is_deposited
@@ -197,14 +205,24 @@ class AerosolSimulation:
         # 2 & 3. Advanced Drifts + Diffusion + Boundary Checks (JIT Compiled in C)
         ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = self.domain_limits
         
+        active_indices = np.where(active)[0]
+        n_act = len(active_indices)
+        
+        x_new = self.x_buf[:n_act]
+        y_new = self.y_buf[:n_act]
+        z_new = self.z_buf[:n_act]
+        hit_wall = self.hw_buf[:n_act]
+        hit_bottom = self.hb_buf[:n_act]
+        
         # Run optimized core
-        x_new, y_new, z_new, hit_wall, hit_bottom = jitted_physics_core(
+        jitted_physics_core(
             x_act, y_act, z_act, ux, uy, uz,
             self.tau[active], self.D_total[active], self.Z_mobility[active],
             np.float64(self.v_th[0]), np.float64(self.v_th[1]), np.float64(self.v_th[2]),
             np.float64(self.E_field[0]), np.float64(self.E_field[1]), np.float64(self.E_field[2]),
             self.dt, g,
-            xmin, xmax, ymax, L1, theta
+            xmin, xmax, ymax, L1, theta,
+            x_new, y_new, z_new, hit_wall, hit_bottom
         )
         
         deposited_this_step = hit_wall | hit_bottom | (x_new <= xmin)
@@ -216,18 +234,19 @@ class AerosolSimulation:
         self.positions[active, 1] = y_new
         self.positions[active, 2] = z_new
         
-        active_indices = np.where(active)[0]
         self.is_deposited[active_indices[deposited_this_step]] = True
         self.bottom_deposit[active_indices[hit_bottom & ~hit_wall]] = True
         self.wall_deposit[active_indices[hit_wall]] = True
         
-        self.trajectories[step_idx] = self.positions.copy()
+        if self.save_trajectories:
+            self.trajectories[step_idx] = self.positions.copy()
         
     def run(self, L1=0.05, theta=np.pi/6):
         for i in range(1, self.n_steps + 1):
             self.step(i, L1=L1, theta=theta)
             if not np.any(~self.is_deposited):
-                self.trajectories = self.trajectories[:i + 1]
+                if self.save_trajectories:
+                    self.trajectories = self.trajectories[:i + 1]
                 break
 
     def deposition_efficiency(self):

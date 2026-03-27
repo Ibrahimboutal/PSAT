@@ -21,9 +21,18 @@ def main():
     parser.add_argument("--q-charges", type=int, default=0, help="Number of elementary charges per particle")
     parser.add_argument("--eddy-diff", type=float, default=0.0, help="Turbulent eddy diffusivity (m^2/s)")
     
+    parser.add_argument("--save-trajectories", action="store_true", help="Save and plot full particle trajectory history")
     parser.add_argument("--animate", action="store_true", help="Generate an animated trajectory GIF")
     parser.add_argument("--output", type=str, default="results.json", help="Path to save the simulation statistics")
     args = parser.parse_args()
+    
+    # CLI Validation
+    if args.time <= 0:
+        parser.error("Simulation time must be strictly positive.")
+    if args.num_particles <= 0:
+        parser.error("Number of particles must be strictly positive.")
+    if args.mean_diameter <= 0:
+        parser.error("Mean particle diameter must be strictly positive.")
 
     print("Initializing PSAT (3D Particle Simulation for Aerosol Transport)...")
     
@@ -47,7 +56,8 @@ def main():
         E_field=tuple(args.e_field),
         q_charges=args.q_charges,
         eddy_diffusivity=args.eddy_diff,
-        fluid_velocity_func=lambda x, y, z: bifurcating_flow_3d(x, y, z, L1=args.L1, theta=args.theta)
+        fluid_velocity_func=lambda x, y, z: bifurcating_flow_3d(x, y, z, L1=args.L1, theta=args.theta),
+        save_trajectories=(args.save_trajectories or args.animate)
     )
     
     print("Setting up initial conditions...")
@@ -87,9 +97,12 @@ def main():
         print("Rendering animation...")
         animate_trajectories(sim.trajectories, domain_limits, num_particles_to_plot=min(300, num_particles), save_path="simulation.gif")
         print("Animation saved as simulation.gif")
-    else:
+    elif args.save_trajectories:
         # Save the trajectory visualization (using 2D projection)
         plot_trajectories(sim.trajectories, domain_limits, num_particles_to_plot=min(300, num_particles), save_path="trajectories.png")
+        print("Visualizations saved as trajectories.png and deposition.png")
+    else:
+        print("Visualization saved as deposition.png")
         
         # Save the deposition histogram
         plot_deposition(
@@ -99,8 +112,6 @@ def main():
             bottom_deposit=sim.bottom_deposit, 
             save_path="deposition.png"
         )
-        
-        print("Visualizations saved as trajectories.png and deposition.png")
 
 if __name__ == "__main__":
     main()
