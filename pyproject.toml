@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "psat"
 version = "0.1.0"
 description = "3D Particle Simulation for Aerosol Transport"
+readme = "README.md"
 authors = [{ name = "Ibrahim Boutal" }]
 dependencies = [
     "numpy",
@@ -20,4 +21,9 @@ test = [
 ]
 
 [project.scripts]
-psat = "main:main"
+# This creates a terminal command called 'psat'
+# It tells Python: "When they type 'psat', run the 'main()' function inside 'psat/cli.py'"
+psat = "psat.cli:main"
+
+[tool.setuptools]
+packages = ["psat"]
