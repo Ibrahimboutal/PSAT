@@ -1,4 +1,11 @@
 numpy
 matplotlib
 numba
+pillow
+# testing
 pytest
+pytest-cov
+# code quality
+ruff
+# web UI
+streamlit

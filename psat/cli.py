@@ -1,8 +1,11 @@
-import numpy as np
 import argparse
 import json
+
+import numpy as np
+
 from psat.engine import AerosolSimulation, bifurcating_flow_3d
-from psat.visualization import plot_trajectories, plot_deposition
+from psat.visualization import plot_deposition, plot_trajectories
+
 
 def main():
     parser = argparse.ArgumentParser(description="PSAT: 3D Particle Simulation for Aerosol Transport")
@@ -10,22 +13,22 @@ def main():
     parser.add_argument("--mean-diameter", type=float, default=5e-6, help="Geometric Mean particle diameter (meters)")
     parser.add_argument("--geo-std-dev", type=float, default=1.5, help="Geometric Standard Deviation (1.0 = monodisperse)")
     parser.add_argument("--time", type=float, default=0.4, help="Total simulation time in seconds")
-    
+
     # Geometry Flags
     parser.add_argument("--L1", type=float, default=0.05, help="Length of the main pipe (m)")
     parser.add_argument("--theta", type=float, default=np.pi/6, help="Bifurcation angle (radians)")
-    
+
     # Advanced Physics Flags
     parser.add_argument("--grad-t", type=float, nargs=3, default=[0.0, 0.0, 0.0], help="Temperature gradient vector (K/m)")
     parser.add_argument("--e-field", type=float, nargs=3, default=[0.0, 0.0, 0.0], help="Electric field vector (V/m)")
     parser.add_argument("--q-charges", type=int, default=0, help="Number of elementary charges per particle")
     parser.add_argument("--eddy-diff", type=float, default=0.0, help="Turbulent eddy diffusivity (m^2/s)")
-    
+
     parser.add_argument("--save-trajectories", action="store_true", help="Save and plot full particle trajectory history")
     parser.add_argument("--animate", action="store_true", help="Generate an animated trajectory GIF")
     parser.add_argument("--output", type=str, default="results.json", help="Path to save the simulation statistics")
     args = parser.parse_args()
-    
+
     # CLI Validation
     if args.time <= 0:
         parser.error("Simulation time must be strictly positive.")
@@ -35,16 +38,16 @@ def main():
         parser.error("Mean particle diameter must be strictly positive.")
 
     print("Initializing PSAT (3D Particle Simulation for Aerosol Transport)...")
-    
+
     # Simulation Parameters
     num_particles = args.num_particles
     dt = 0.001  # seconds
     total_time = args.time  # seconds
-    
+
     # Domain: Length 10cm (x: 0 to 0.1m), Cylinder radius 1cm (y, z: -0.01 to 0.01)
     # The new Y-branch bifurcates at x = 0.05m
     domain_limits = ((0.0, 0.1), (-0.01, 0.01), (-0.01, 0.01))
-        
+
     sim = AerosolSimulation(
         num_particles=num_particles,
         dt=dt,
@@ -59,13 +62,13 @@ def main():
         fluid_velocity_func=lambda x, y, z: bifurcating_flow_3d(x, y, z, L1=args.L1, theta=args.theta),
         save_trajectories=(args.save_trajectories or args.animate)
     )
-    
+
     print("Setting up initial conditions...")
     sim.initialize_particles()
-    
+
     print("Running simulation...")
     sim.run(L1=args.L1, theta=args.theta)
-    
+
     dep_eff = sim.deposition_efficiency()
     wall_dep = sim.wall_deposition_fraction()
     bot_dep = sim.bottom_deposition_fraction()
@@ -75,7 +78,7 @@ def main():
     print(f"Deposited on Airways Walls:  {wall_dep:.1%}")
     print(f"Reached Target (Deep Lung):  {bot_dep:.1%}")
     print("---------------------------------------\n")
-    
+
     # Export results
     results = {
         "num_particles": num_particles,
@@ -89,9 +92,9 @@ def main():
     with open(args.output, "w") as f:
         json.dump(results, f, indent=4)
     print(f"Results saved to {args.output}")
-    
+
     print("Visualizing results...")
-    
+
     if args.animate:
         from psat.visualization import animate_trajectories
         print("Rendering animation...")
@@ -103,13 +106,13 @@ def main():
         print("Visualizations saved as trajectories.png and deposition.png")
     else:
         print("Visualization saved as deposition.png")
-        
+
         # Save the deposition histogram
         plot_deposition(
-            sim.positions, 
-            domain_limits, 
-            wall_deposit=sim.wall_deposit, 
-            bottom_deposit=sim.bottom_deposit, 
+            sim.positions,
+            domain_limits,
+            wall_deposit=sim.wall_deposit,
+            bottom_deposit=sim.bottom_deposit,
             save_path="deposition.png"
         )
 

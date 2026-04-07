@@ -1,6 +1,14 @@
 numpy
 matplotlib
 numba
+pillow
+
+[dev]
+pytest
+pytest-cov
+ruff
+streamlit
 
 [test]
 pytest
+pytest-cov

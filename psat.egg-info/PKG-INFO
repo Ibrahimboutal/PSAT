@@ -1,69 +1,229 @@
 Metadata-Version: 2.4
 Name: psat
-Version: 0.1.0
+Version: 0.2.0
 Summary: 3D Particle Simulation for Aerosol Transport
 Author: Ibrahim Boutal
-Requires-Python: >=3.8
+License: MIT
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: numpy
 Requires-Dist: matplotlib
 Requires-Dist: numba
+Requires-Dist: pillow
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: streamlit; extra == "dev"
 
-# PSAT: Particle Simulation for Aerosol Transport
+# PSAT — Particle Simulation for Aerosol Transport
 
-PSAT is a Python-based physics engine designed to simulate and analyze the transport of aerosol particles through pipelines or airways using a Monte Carlo Euler-Maruyama approach.
+[![Physics Tests](https://github.com/Ibrahimboutal/PSAT/actions/workflows/tests.yml/badge.svg)](https://github.com/Ibrahimboutal/PSAT/actions/workflows/tests.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![codecov](https://codecov.io/gh/Ibrahimboutal/PSAT/branch/main/graph/badge.svg)](https://codecov.io/gh/Ibrahimboutal/PSAT)
 
-The simulation accurately models:
-- **Fluid Advection**: Uses a parabolic (Poiseuille-like) flow profile.
-- **Brownian Diffusion**: Models random walks for sub-micron particles.
-- **Gravity Settling**: Accounts for gravitational dropout.
-- **Cunningham Slip Correction Factor**: Enhances accuracy for modeling nanoparticle relaxation time and diffusion coefficients. 
+> **Try it live →** [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://psat.streamlit.app)
 
-## Features
+A high-performance 3D Monte Carlo aerosol transport engine built in Python.
+Simulates aerosol particle motion through a Y-bifurcating airway using
+Euler-Maruyama stochastic integration, with the hot physics loop compiled to
+native machine code via **Numba JIT**.
 
-- **Object-Oriented Architecture**: Clean definitions of physics models in `psat/engine.py`.
-- **Command-Line Interface (CLI)**: Easily customize parameters without changing code.
-- **Statistical Export**: Saves deposition data (wall, target) to JSON files.
-- **Advanced Visualizations**: Render both static plots of trajectories/deposition profiles and dynamic animated GIFs of particle transport.
+![Particle trajectories animation](simulation.gif)
 
-## Installation
+---
 
-Ensure you have Python 3 installed, then install the required dependencies:
+## ✨ Features
 
+| Feature | Details |
+|---------|---------|
+| **Physics model** | 3D Euler-Maruyama SDE with Brownian diffusion, gravity settling, thermophoresis, and electrostatics |
+| **Particle distribution** | Polydisperse log-normal size distribution |
+| **Slip correction** | Cunningham Slip Factor for sub-micron / nano-particle accuracy |
+| **Flow field** | Parabolic Poiseuille profile → Y-bifurcating airway geometry |
+| **Performance** | Numba `@njit` compiles the physics core to LLVM / native x86-64 (see [Benchmark](#-performance-benchmark)) |
+| **Web UI** | Streamlit app — run locally or deploy to Streamlit Cloud |
+| **CI/CD** | GitHub Actions: Ruff lint + Pytest + Codecov coverage |
+
+---
+
+## 📐 Mathematical Model
+
+### Euler-Maruyama Stochastic Integration
+
+Particle positions evolve according to the Itô SDE:
+
+$$dX = f(X)\,dt + \sqrt{2D}\,dW$$
+
+Discretised using the Euler-Maruyama method:
+
+$$X_{n+1} = X_n + f(X_n)\,\Delta t + \sqrt{2 D \,\Delta t}\;\xi_n, \quad \xi_n \sim \mathcal{N}(0,1)$$
+
+where $f(X)$ is the total deterministic drift (advection + settling + thermophoresis + electrostatics) and $D$ is the particle diffusivity.
+
+### Cunningham Slip Correction Factor
+
+For nano- and sub-micron particles, the continuum assumption breaks down. The
+Cunningham factor corrects the Stokes drag:
+
+$$C_c = 1 + Kn\!\left(1.257 + 0.4\,e^{-1.1/Kn}\right), \quad Kn = \frac{2\lambda}{d_p}$$
+
+where $\lambda = 66.4\,\text{nm}$ is the mean free path of air and $d_p$ is the particle diameter.
+
+### Stokes Relaxation Time & Settling Velocity
+
+$$\tau_p = \frac{\rho_p\,d_p^2\,C_c}{18\,\mu}, \qquad v_s = \tau_p\,g$$
+
+### Brownian Diffusivity (Stokes-Einstein)
+
+$$D = \frac{k_B\,T\,C_c}{3\pi\,\mu\,d_p}$$
+
+### Thermophoretic Drift (Brock approximation)
+
+$$\mathbf{v}_{th} \approx -K_{th}\,\nabla T$$
+
+### Electrostatic Drift
+
+$$\mathbf{v}_{E} = Z\,\mathbf{E}, \qquad Z = \frac{q\,e\,C_c}{3\pi\,\mu\,d_p}$$
+
+---
+
+## 📊 Deposition Profile
+
+The simulation produces a deposition histogram showing where particles impact the airway walls along the axial direction:
+
+![Deposition histogram](deposition.png)
+
+---
+
+## ⚡ Performance Benchmark
+
+The physics integration hot path is compiled to native machine code using
+`@numba.njit(fastmath=True)`. The benchmark notebook ([`benchmark.ipynb`](benchmark.ipynb)) measures:
+
+| Particles | Pure Python | Numba JIT | Speedup |
+|-----------|-------------|-----------|---------|
+| N = 500   | *run notebook* | — | **~100–300×** |
+| N = 2 000 | *run notebook* | — | **~100–300×** |
+
+> The one-time JIT compilation cost (~1–3 s) is paid once per process and then cached to disk.
+
+Run the benchmark yourself:
 ```bash
-pip install -r requirements.txt
+jupyter notebook benchmark.ipynb
 ```
 
-*(Requires `numpy`, `matplotlib`, and `numba`)*
+---
 
-## Usage
-
-You can run PSAT directly from the terminal. 
+## 🚀 Installation
 
 ```bash
-python main.py --help
+# Clone the repo
+git clone https://github.com/Ibrahimboutal/PSAT.git
+cd PSAT
+
+# Install the package in editable mode (includes core + dev tools)
+pip install -e ".[dev]"
 ```
 
-### Command-Line Arguments:
-- `--num-particles`: Number of Monte Carlo statistical paths to simulate (default: 1000).
-- `--diameter`: Diameter of the aerosol particles in meters. (default: `5e-6` which is 5 um).
-- `--time`: Total length of the simulation in seconds (default: 0.4s).
-- `--output`: Filepath to output the metrics JSON (default: `results.json`).
-- `--animate`: Flag to generate an animated GIF (`simulation.gif`) along with standard execution.
+---
 
-### Example Run
-Run a fast simulation of 100 sub-micron (500 nm) particles, generating an animation and a JSON stats output:
+## 🖥️ Web UI (Streamlit)
 
 ```bash
-python main.py --num-particles 100 --diameter 0.5e-6 --animate
+streamlit run app.py
 ```
 
-## Outputs
+Then open `http://localhost:8501` in your browser.  Adjust parameters with the
+sidebar sliders and click **Run Simulation** — no command line needed.
 
-By default, the simulation generates:
-1. `trajectories.png` - A static overlay of particle paths through the flow domain.
-2. `deposition.png` - A histogram displaying where particles were deposited on the bounds of the domain.
-3. `results.json` - A detailed breakdown of efficiency statistics. 
-4. `simulation.gif` *(Only if `--animate` is provided)* - A time-series animation mapping particle progression.
+**Deploy to the cloud (free):**  
+Push your repo to GitHub, connect it at [streamlit.io/cloud](https://streamlit.io/cloud), and set `app.py` as the entry point.
+
+---
+
+## 💻 CLI Usage
+
+```bash
+# Quick run — 500 particles, default parameters
+psat --num-particles 500
+
+# Sub-micron aerosol with animation
+psat --num-particles 300 --mean-diameter 0.5e-6 --geo-std-dev 1.8 --animate
+
+# With thermophoresis and an electric field
+psat --num-particles 1000 --grad-t 500 0 0 --e-field 0 1000 0 --q-charges 5
+```
+
+### All CLI Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--num-particles` | 1000 | Number of Monte Carlo particles |
+| `--mean-diameter` | 5e-6 | Geometric mean particle diameter (m) |
+| `--geo-std-dev` | 1.5 | Geometric std dev of log-normal distribution |
+| `--time` | 0.4 | Total simulation time (s) |
+| `--L1` | 0.05 | Main pipe length before bifurcation (m) |
+| `--theta` | π/6 | Bifurcation half-angle (radians) |
+| `--grad-t` | 0 0 0 | Temperature gradient vector (K/m) |
+| `--e-field` | 0 0 0 | Electric field vector (V/m) |
+| `--q-charges` | 0 | Elementary charges per particle |
+| `--eddy-diff` | 0.0 | Turbulent eddy diffusivity (m²/s) |
+| `--save-trajectories` | off | Save & plot trajectory history |
+| `--animate` | off | Render `simulation.gif` |
+| `--output` | results.json | Path for statistics JSON output |
+
+---
+
+## 📁 Outputs
+
+| File | Description |
+|------|-------------|
+| `results.json` | Deposition efficiency, wall & outlet fractions |
+| `deposition.png` | Axial wall deposition histogram |
+| `trajectories.png` | Static 3-D overlay of particle paths |
+| `simulation.gif` | Time-series animation *(with `--animate`)* |
+
+---
+
+## 🧪 Running Tests
+
+```bash
+pytest tests/ -v --cov=psat --cov-report=term-missing
+```
+
+### Linting
+
+```bash
+ruff check psat/
+```
+
+---
+
+## 🏗️ Project Structure
+
+```
+PSAT/
+├── psat/
+│   ├── engine.py          # Physics engine (Euler-Maruyama + Numba JIT)
+│   ├── visualization.py   # Plotting & animation utilities
+│   ├── cli.py             # Command-line interface
+│   └── constants.py       # Physical constants (k_B, g, λ_air, e)
+├── tests/
+│   └── test_physics.py    # Physics accuracy & stability tests
+├── app.py                 # Streamlit web UI
+├── benchmark.ipynb        # Numba vs Python performance notebook
+├── pyproject.toml         # Package config (PEP 517)
+└── .github/workflows/
+    └── tests.yml          # CI: lint → test → coverage
+```
+
+---
+
+## 📜 License
+
+MIT — see [LICENSE](LICENSE).
