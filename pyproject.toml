@@ -15,6 +15,9 @@ dependencies = [
     "matplotlib",
     "numba",
     "pillow",
+    "streamlit",
+    "plotly",
+    "pandas",
 ]
 
 [project.optional-dependencies]
@@ -26,15 +29,12 @@ dev = [
     "pytest",
     "pytest-cov",
     "ruff",
-    "streamlit",
-    "plotly",
-    "pandas",
     "typer",
     "pre-commit",
 ]
 
 [project.scripts]
-# Creates a terminal command 'psat' → psat/cli.py:main()
+# Creates a terminal command 'psat' → psat/cli.py:app()
 psat = "psat.cli:app"
 
 [tool.setuptools]
