@@ -9,6 +9,7 @@ from __future__ import annotations
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
+import plotly.graph_objects as go
 
 
 def plot_trajectories(
@@ -191,3 +192,75 @@ def animate_trajectories(
         ani.save(save_path, fps=fps)
 
     plt.close()
+
+
+def plot_trajectories_plotly(
+    trajectories: np.ndarray,
+    domain_limits: tuple,
+    num_particles_to_plot: int = 100,
+) -> go.Figure:
+    """Generate an interactive Plotly 3D scatter plot of aerosol trajectories.
+
+    Parameters
+    ----------
+    trajectories : np.ndarray
+        Full trajectory history with shape ``(n_steps, N, 3)``.
+    domain_limits : tuple
+        Spatial bounds ``((xmin, xmax), (ymin, ymax), (zmin, zmax))`` in metres.
+    num_particles_to_plot : int, optional
+        Maximum number of randomly sampled particles to display. Default 100.
+
+    Returns
+    -------
+    go.Figure
+        A Plotly Figure object that can be rendered in a Streamlit app.
+    """
+    ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = domain_limits
+    n_particles = trajectories.shape[1]
+    plot_idx = np.random.choice(
+        n_particles, min(n_particles, num_particles_to_plot), replace=False
+    )
+
+    fig = go.Figure()
+
+    # Add trajectories
+    for idx in plot_idx:
+        x = trajectories[:, idx, 0]
+        y = trajectories[:, idx, 1]
+        z = trajectories[:, idx, 2]
+
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z,
+            mode='lines',
+            line=dict(width=2, color='rgba(79, 142, 247, 0.5)'),
+            showlegend=False
+        ))
+
+    # Add invisible boundary boxes to force Plotly to scale correctly
+    fig.add_trace(go.Scatter3d(
+        x=[xmin, xmax, xmax, xmin, xmin, xmax, xmax, xmin],
+        y=[ymin, ymin, ymax, ymax, ymin, ymin, ymax, ymax],
+        z=[zmin, zmin, zmin, zmin, zmax, zmax, zmax, zmax],
+        mode='markers',
+        marker=dict(size=0.1, color='rgba(0,0,0,0)'),
+        showlegend=False,
+        hoverinfo='skip'
+    ))
+
+    # Configure Layout
+    fig.update_layout(
+        scene=dict(
+            xaxis_title="Axial x (m)",
+            yaxis_title="Radial y (m)",
+            zaxis_title="Depth z (m)",
+            xaxis=dict(range=[xmin, xmax], gridcolor='rgba(255,255,255,0.2)'),
+            yaxis=dict(range=[ymin, ymax], gridcolor='rgba(255,255,255,0.2)'),
+            zaxis=dict(range=[zmin, zmax], gridcolor='rgba(255,255,255,0.2)'),
+            bgcolor='rgba(14, 17, 23, 1)'
+        ),
+        margin=dict(l=0, r=0, b=0, t=30),
+        paper_bgcolor='rgba(14, 17, 23, 1)',
+        font=dict(color='white')
+    )
+
+    return fig

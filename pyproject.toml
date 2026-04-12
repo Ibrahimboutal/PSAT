@@ -27,6 +27,8 @@ dev = [
     "pytest-cov",
     "ruff",
     "streamlit",
+    "plotly",
+    "pandas",
 ]
 
 [project.scripts]

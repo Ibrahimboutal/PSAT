@@ -9,3 +9,5 @@ pytest-cov
 ruff
 # web UI
 streamlit
+plotly
+pandas

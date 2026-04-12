@@ -7,17 +7,16 @@ Deploy in one click to Streamlit Community Cloud:
 """
 from __future__ import annotations
 
-import io
 import time
-import tempfile
 from pathlib import Path
 
-import numpy as np
-import streamlit as st
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import streamlit as st
 
 from psat.engine import AerosolSimulation, bifurcating_flow_3d
-from psat.visualization import plot_deposition, animate_trajectories
+from psat.visualization import plot_trajectories_plotly
 
 # ── Page configuration ────────────────────────────────────────────────────────
 st.set_page_config(
@@ -99,7 +98,7 @@ with st.sidebar:
     q_charges = st.number_input("Particle charge (elementary units)", value=0, step=1)
 
     st.subheader("Outputs")
-    generate_animation = st.checkbox("Generate trajectory animation (slower)", value=False)
+    generate_3d_plot = st.checkbox("Generate interactive 3D trajectories (slower)", value=False)
 
     run_btn = st.button("▶  Run Simulation", type="primary", use_container_width=True)
 
@@ -137,7 +136,7 @@ else:
             q_charges=int(q_charges),
             eddy_diffusivity=eddy_diff,
             fluid_velocity_func=lambda x, y, z: bifurcating_flow_3d(x, y, z),
-            save_trajectories=generate_animation,
+            save_trajectories=generate_3d_plot,
         )
         sim.initialize_particles()
         sim.run()
@@ -172,6 +171,23 @@ else:
         unsafe_allow_html=True,
     )
 
+    # ── Raw Data Export ────────────────────────────────────────────────────────
+    df_results = pd.DataFrame(
+        sim.positions,
+        columns=["x (m)", "y (m)", "z (m)"]
+    )
+    df_results["Deposited"] = sim.is_deposited
+    df_results["Wall Deposit"] = sim.wall_deposit
+    df_results["Deep Lung Deposit"] = sim.bottom_deposit
+
+    csv_data = df_results.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="⬇️ Download Raw Particle Data (CSV)",
+        data=csv_data,
+        file_name='psat_particle_data.csv',
+        mime='text/csv',
+    )
+
     st.markdown("---")
 
     # ── Deposition histogram ──────────────────────────────────────────────────
@@ -204,29 +220,16 @@ else:
     st.pyplot(fig)
     plt.close(fig)
 
-    # ── Animation (optional) ─────────────────────────────────────────────────
-    if generate_animation and sim.trajectories is not None:
-        st.subheader("🎬 Trajectory Animation")
-        with st.spinner("Rendering GIF …"):
-            with tempfile.NamedTemporaryFile(suffix=".gif", delete=False) as tmp:
-                tmp_path = tmp.name
-            animate_trajectories(
+    # ── Interactive 3D Trajectories (optional) ───────────────────────────────
+    if generate_3d_plot and sim.trajectories is not None:
+        st.subheader("🕸️ Interactive 3D Trajectories")
+        with st.spinner("Rendering 3D Plotly graph …"):
+            fig_3d = plot_trajectories_plotly(
                 sim.trajectories,
                 domain_limits,
-                num_particles_to_plot=min(150, num_particles),
-                save_path=tmp_path,
-                fps=20,
+                num_particles_to_plot=min(150, num_particles)
             )
-            with open(tmp_path, "rb") as f:
-                gif_bytes = f.read()
-
-        st.image(gif_bytes, caption="Live particle trajectories through Y-bifurcating airway")
-        st.download_button(
-            "⬇️ Download animation GIF",
-            data=gif_bytes,
-            file_name="psat_simulation.gif",
-            mime="image/gif",
-        )
+        st.plotly_chart(fig_3d, use_container_width=True)
 
     # ── Particle size distribution ────────────────────────────────────────────
     if geo_std_dev > 1.0:

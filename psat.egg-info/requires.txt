@@ -8,6 +8,8 @@ pytest
 pytest-cov
 ruff
 streamlit
+plotly
+pandas
 
 [test]
 pytest

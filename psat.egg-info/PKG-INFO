@@ -18,6 +18,8 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: streamlit; extra == "dev"
+Requires-Dist: plotly; extra == "dev"
+Requires-Dist: pandas; extra == "dev"
 
 # PSAT — Particle Simulation for Aerosol Transport
 
