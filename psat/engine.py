@@ -271,6 +271,17 @@ class AerosolSimulation:
         eddy_diffusivity: float = 0.0,
         save_trajectories: bool = False,
     ) -> None:
+        if num_particles <= 0:
+            raise ValueError("Number of particles must be strictly positive.")
+        if dt <= 0.0:
+            raise ValueError("Time step dt must be strictly positive.")
+        if total_time <= 0.0:
+            raise ValueError("Total simulation time must be strictly positive.")
+        if mean_diameter <= 0.0:
+            raise ValueError("Mean particle diameter must be strictly positive.")
+        if geo_std_dev < 1.0:
+            raise ValueError("Geometric standard deviation must be >= 1.0.")
+
         self.N = num_particles
         self.dt = dt
         self.total_time = total_time

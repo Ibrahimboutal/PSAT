@@ -29,11 +29,13 @@ dev = [
     "streamlit",
     "plotly",
     "pandas",
+    "typer",
+    "pre-commit",
 ]
 
 [project.scripts]
 # Creates a terminal command 'psat' → psat/cli.py:main()
-psat = "psat.cli:main"
+psat = "psat.cli:app"
 
 [tool.setuptools]
 packages = ["psat"]

@@ -17,6 +17,7 @@ import streamlit as st
 
 from psat.engine import AerosolSimulation, bifurcating_flow_3d
 from psat.visualization import plot_trajectories_plotly
+from ui_components import load_css, render_hero_banner, render_metric_card
 
 # ── Page configuration ────────────────────────────────────────────────────────
 st.set_page_config(
@@ -27,57 +28,10 @@ st.set_page_config(
 )
 
 # ── Custom CSS ────────────────────────────────────────────────────────────────
-st.markdown(
-    """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-
-    .hero-title {
-        font-size: 2.6rem;
-        font-weight: 700;
-        background: linear-gradient(120deg, #4f8ef7, #a259ff);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.2rem;
-    }
-    .hero-sub {
-        color: #888;
-        font-size: 1.05rem;
-        margin-bottom: 1.6rem;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 1px solid #2d2d4e;
-        border-radius: 12px;
-        padding: 1.4rem 1.6rem;
-        text-align: center;
-    }
-    .metric-value {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #4f8ef7;
-    }
-    .metric-label {
-        font-size: 0.85rem;
-        color: #aaa;
-        margin-top: 0.3rem;
-    }
-    div[data-testid="stSidebar"] {
-        background: #0f0f1a;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+load_css()
 
 # ── Hero banner ───────────────────────────────────────────────────────────────
-st.markdown('<div class="hero-title">💨 PSAT Aerosol Simulator</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="hero-sub">3D Monte Carlo · Euler-Maruyama SDE · Numba JIT · Y-bifurcating airway physics</div>',
-    unsafe_allow_html=True,
-)
+render_hero_banner()
 
 # ── Sidebar controls ──────────────────────────────────────────────────────────
 with st.sidebar:
@@ -151,25 +105,10 @@ else:
     st.markdown(f"#### ✅ Simulation complete in **{elapsed:.2f} s** ({num_particles} particles)")
     c1, c2, c3, c4 = st.columns(4)
 
-    def metric_card(col, value: float, label: str, color: str = "#4f8ef7") -> None:
-        col.markdown(
-            f"""<div class="metric-card">
-                <div class="metric-value" style="color:{color}">{value:.1%}</div>
-                <div class="metric-label">{label}</div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
-
-    metric_card(c1, dep_eff, "Total Deposition")
-    metric_card(c2, wall_dep, "Wall Deposition", "#ff6b6b")
-    metric_card(c3, bot_dep, "Reached Deep Lung", "#51cf66")
-    c4.markdown(
-        f"""<div class="metric-card">
-            <div class="metric-value" style="color:#ffd43b">{elapsed:.2f}s</div>
-            <div class="metric-label">Runtime</div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+    render_metric_card(c1, dep_eff, "Total Deposition")
+    render_metric_card(c2, wall_dep, "Wall Deposition", "#ff6b6b")
+    render_metric_card(c3, bot_dep, "Reached Deep Lung", "#51cf66")
+    render_metric_card(c4, elapsed, "Runtime", "#ffd43b", is_time=True)
 
     # ── Raw Data Export ────────────────────────────────────────────────────────
     df_results = pd.DataFrame(
