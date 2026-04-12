@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![codecov](https://codecov.io/gh/Ibrahimboutal/PSAT/branch/main/graph/badge.svg)](https://codecov.io/gh/Ibrahimboutal/PSAT)
 
-> **Try it live →** [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://psat.streamlit.app)
+> **Try it live →** [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://9wrvkavte4vftxmgxwcnzf.streamlit.app/)
 
 A high-performance 3D Monte Carlo aerosol transport engine built in Python.
 Simulates aerosol particle motion through a Y-bifurcating airway using
