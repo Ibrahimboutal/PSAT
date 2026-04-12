@@ -18,8 +18,7 @@ def test_cli_invalid_particles():
 
 def test_cli_invalid_time():
     result = runner.invoke(app, ["--time", "-1.0"])
-    # Typer automatically catches negative float boundaries when strictly typed or validated by engine
-    # In this case, either Typer stops it or the ValueError inside the engine catches it and we exit(1)!
-    assert result.exit_code != 0
+    # Typer returns exit code 2 for parameter validation errors
+    assert result.exit_code == 2
 
 
