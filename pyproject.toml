@@ -18,6 +18,7 @@ dependencies = [
     "streamlit",
     "plotly",
     "pandas",
+    "optuna",
 ]
 
 [project.optional-dependencies]

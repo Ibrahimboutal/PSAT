@@ -1,2 +1,2 @@
 [console_scripts]
-psat = psat.cli:main
+psat = psat.cli:app

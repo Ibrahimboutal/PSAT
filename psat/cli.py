@@ -31,7 +31,9 @@ def main(
     q_charges: int = typer.Option(0, help="Number of elementary charges per particle"),
     eddy_diff: float = typer.Option(0.0, help="Turbulent eddy diffusivity (m^2/s)"),
     visualize: str = typer.Option("none", help="Visualization format: none, plot, or animate"),
-    output: str = typer.Option("results.json", help="Path to save the simulation statistics")
+    output: str = typer.Option("results.json", help="Path to save the simulation statistics"),
+    optimize: bool = typer.Option(False, "--optimize", help="Run Optuna Bayesian optimization loop instead of standard simulation"),
+    trials: int = typer.Option(50, help="Number of optimization trials (if --optimize is set)")
 ) -> None:
     """Run the 3D Aerosol Transport Simulation via CLI."""
     if num_particles <= 0:
@@ -40,6 +42,22 @@ def main(
     if mean_diameter <= 0:
         typer.secho("Error: Mean particle diameter must be strictly positive.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
+
+    if optimize:
+        typer.secho(f"🚀 Deploying Agentic Benchmark (Optuna) over {trials} Trials...", fg=typer.colors.MAGENTA, bold=True)
+        from psat.optimization import run_optimization
+
+        study = run_optimization(n_trials=trials, num_particles=num_particles)
+        best = study.best_params
+        val = study.best_value
+
+        typer.secho("\n--- Optimization Complete ---", fg=typer.colors.GREEN, bold=True)
+        typer.echo(f"Top Therapy Score Found: {val:.4f}")
+        typer.echo(f"Ideal Settings:\n {json.dumps(best, indent=4)}")
+
+        with open("optuna_best_results.json", "w") as f:
+            json.dump({"Best Score": val, "Parameters": best}, f, indent=4)
+        return
 
     typer.echo("Initializing PSAT (3D Particle Simulation for Aerosol Transport)...")
 
