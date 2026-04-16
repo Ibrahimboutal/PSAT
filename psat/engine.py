@@ -11,6 +11,14 @@ from collections.abc import Callable
 import numba
 import numpy as np
 
+# Phase 2 C++ Optimization Extrapolator
+# Try resolving Pybind11 Native headers, falling back onto lightning-fast Numba if uncompiled
+try:
+    import psat_cpp_core
+    CPP_ENABLED = True
+except ImportError:
+    CPP_ENABLED = False
+
 from psat.constants import e_charge, g, k_B, lambda_air
 
 # Type alias for 3-component float tuples used throughout
@@ -77,8 +85,12 @@ def bifurcating_flow_3d(
     return ux, uy, uz
 
 
+# =========================================================================
+# The JIT-compiled Physics loop (Fallback if C++ fails)
+# =========================================================================
+
 @numba.njit(fastmath=True)
-def jitted_physics_core(
+def jitted_physics_core_numba(
     x_act: np.ndarray,
     y_act: np.ndarray,
     z_act: np.ndarray,
@@ -107,53 +119,6 @@ def jitted_physics_core(
     hit_wall: np.ndarray,
     hit_bottom: np.ndarray,
 ) -> None:
-    """JIT-compiled Euler-Maruyama physics core (compiled to C via LLVM).
-
-    Advances every active particle by one time step ``dt`` and writes the
-    results into the pre-allocated output arrays. No Python objects are
-    created inside this function so Numba can compile it directly.
-
-    The Euler-Maruyama discretisation is:
-
-        X_{n+1} = X_n + f(X_n) dt + sqrt(2 D dt) ξ
-
-    where ``ξ ~ N(0,1)`` is an independent Wiener increment.
-
-    Parameters
-    ----------
-    x_act, y_act, z_act : np.ndarray
-        Current positions of active particles (m).
-    ux, uy, uz : np.ndarray
-        Fluid velocity at each active particle's location (m/s).
-    tau_act : np.ndarray
-        Stokes relaxation time for each active particle (s).
-    D_act : np.ndarray
-        Total diffusivity (Brownian + eddy) per particle (m²/s).
-    Z_act : np.ndarray
-        Electrical mobility per particle (m²/(V·s)).
-    v_th_x, v_th_y, v_th_z : float
-        Thermophoretic drift velocity components (m/s).
-    Ex, Ey, Ez : float
-        Electric field vector components (V/m).
-    dt : float
-        Time step (s).
-    gravity : float
-        Gravitational acceleration magnitude (m/s²).
-    xmin, xmax : float
-        Axial domain bounds (m).
-    ymax : float
-        Maximum radial extent used as main-pipe radius (m).
-    L1 : float
-        Axial bifurcation point (m).
-    theta : float
-        Bifurcation half-angle (radians).
-    x_new, y_new, z_new : np.ndarray
-        **Output** — proposed new positions (m). Mutated in place.
-    hit_wall : np.ndarray
-        **Output** — boolean flags for wall deposition. Mutated in place.
-    hit_bottom : np.ndarray
-        **Output** — boolean flags for outlet deposition. Mutated in place.
-    """
     n_active = len(x_act)
 
     R_main = ymax
@@ -165,13 +130,13 @@ def jitted_physics_core(
     R_branch_sq = R_branch ** 2
 
     for i in range(n_active):
-        # ── Deterministic drift ──────────────────────────────────────────
+        # Deterministic drift
         v_settling_y = -tau_act[i] * gravity
         total_vx = ux[i] + v_th_x + Z_act[i] * Ex
         total_vy = uy[i] + v_th_y + Z_act[i] * Ey + v_settling_y
         total_vz = uz[i] + v_th_z + Z_act[i] * Ez
 
-        # ── Stochastic (Brownian / eddy) diffusion ───────────────────────
+        # Stochastic (Brownian / eddy) diffusion
         sigma = np.sqrt(2.0 * D_act[i] * dt)
         dW_x = np.random.normal(0.0, 1.0) * sigma
         dW_y = np.random.normal(0.0, 1.0) * sigma
@@ -181,7 +146,7 @@ def jitted_physics_core(
         ny = y_act[i] + total_vy * dt + dW_y
         nz = z_act[i] + total_vz * dt + dW_z
 
-        # ── Boundary detection ───────────────────────────────────────────
+        # Boundary detection
         hw = False
         hb = False
 
@@ -207,6 +172,12 @@ def jitted_physics_core(
         z_new[i] = nz
         hit_wall[i] = hw
         hit_bottom[i] = hb
+
+# Dynamic Hook
+if CPP_ENABLED:
+    jitted_physics_core = psat_cpp_core.jitted_physics_core_cpp
+else:
+    jitted_physics_core = jitted_physics_core_numba
 
 
 class AerosolSimulation:
