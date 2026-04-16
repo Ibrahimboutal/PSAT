@@ -39,5 +39,22 @@ def test_plotly_generation():
 
     fig = plot_trajectories_plotly(trajectories, domain, num_particles_to_plot=2)
     assert fig is not None
-    # Ensure layout configurations hit successfully
     assert "xaxis" in fig.layout.scene
+
+
+def test_animate_trajectories_save(tmp_path):
+    import os
+
+    from psat.visualization import animate_trajectories
+
+    trajectories = np.random.rand(2, 5, 3)  # 2 steps, 5 particles, 3D
+    domain = ((0, 1), (0, 1), (0, 1))
+
+    save_file = tmp_path / "sim.gif"
+
+    # Animate rendering utilizing native Pillow backend
+    animate_trajectories(
+        trajectories, domain, num_particles_to_plot=2, save_path=str(save_file), fps=1
+    )
+
+    assert os.path.exists(save_file)

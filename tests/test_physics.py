@@ -84,3 +84,59 @@ def test_deterministic_bounds_no_diffusion():
     assert np.allclose(sim.positions[:, 0], sim.positions[0, 0]), "X coordinates diverged!"
     assert np.allclose(sim.positions[:, 1], sim.positions[0, 1]), "Y coordinates diverged!"
     assert np.allclose(sim.positions[:, 2], sim.positions[0, 2]), "Z coordinates diverged!"
+
+
+def test_engine_numba_fallback():
+    """Verify the pure python fallback correctly integrates memory boundaries."""
+    import psat.engine as pe
+
+    original_core = pe.jitted_physics_core
+    pe.jitted_physics_core = pe.jitted_physics_core_numba
+    try:
+        sim = pe.AerosolSimulation(
+            num_particles=100,
+            dt=0.01,
+            total_time=0.1,
+            domain_limits=((0, 0), (0, 0), (0, 0)),
+            save_trajectories=True,
+        )
+        sim.initialize_particles()
+        sim.run()
+        assert len(sim.trajectories) > 0
+    finally:
+        pe.jitted_physics_core = original_core
+
+
+def test_engine_edge_cases():
+    """Execute ValueErrors ensuring strict data definitions."""
+    import pytest
+
+    from psat.engine import AerosolSimulation
+
+    with pytest.raises(ValueError):
+        AerosolSimulation(
+            num_particles=100, dt=-0.1, total_time=0.1, domain_limits=((0, 0), (0, 0), (0, 0))
+        )
+
+    with pytest.raises(ValueError):
+        AerosolSimulation(
+            num_particles=100, dt=0.01, total_time=-1.0, domain_limits=((0, 0), (0, 0), (0, 0))
+        )
+
+    with pytest.raises(ValueError):
+        AerosolSimulation(
+            num_particles=0, dt=0.01, total_time=0.1, domain_limits=((0, 0), (0, 0), (0, 0))
+        )
+
+    # Trigger all particles deposited early loop break
+    sim = AerosolSimulation(
+        num_particles=10,
+        dt=1.0,
+        total_time=5.0,
+        domain_limits=((0, 0), (0, 0), (0, 0)),
+        save_trajectories=True,
+    )
+    sim.initialize_particles()
+    sim.is_deposited[:] = True  # Force deposit instantly
+    sim.run()  # Should break on step 1 and truncate tracking
+    assert len(sim.trajectories) == 2
