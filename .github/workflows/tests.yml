@@ -18,6 +18,14 @@ jobs:
       with:
         python-version: '3.12'
 
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -25,7 +33,8 @@ jobs:
 
     - name: Lint with Ruff
       run: |
-        ruff check psat/
+        ruff check . --fix --exit-non-zero-on-fix
+        ruff format --check .
 
     - name: Run Pytest with coverage
       run: |
