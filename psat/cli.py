@@ -13,15 +13,18 @@ app = typer.Typer(
 )
 
 
-
 @app.command()
 def main(
     num_particles: int = typer.Option(1000, help="Number of particles to simulate"),
     mean_diameter: float = typer.Option(5e-6, help="Geometric Mean particle diameter (meters)"),
-    geo_std_dev: float = typer.Option(1.5, help="Geometric Standard Deviation (1.0 = monodisperse)"),
+    geo_std_dev: float = typer.Option(
+        1.5, help="Geometric Standard Deviation (1.0 = monodisperse)"
+    ),
     time: float = typer.Option(0.4, min=0.001, help="Total simulation time in seconds"),
     l1: float = typer.Option(0.05, help="Length of the main pipe (m)"),
-    theta: float = typer.Option(0.5235987755982988, help="Bifurcation angle (radians, default pi/6)"),
+    theta: float = typer.Option(
+        0.5235987755982988, help="Bifurcation angle (radians, default pi/6)"
+    ),
     grad_t_x: float = typer.Option(0.0, help="Temp gradient x-component (K/m)"),
     grad_t_y: float = typer.Option(0.0, help="Temp gradient y-component (K/m)"),
     grad_t_z: float = typer.Option(0.0, help="Temp gradient z-component (K/m)"),
@@ -32,8 +35,12 @@ def main(
     eddy_diff: float = typer.Option(0.0, help="Turbulent eddy diffusivity (m^2/s)"),
     visualize: str = typer.Option("none", help="Visualization format: none, plot, or animate"),
     output: str = typer.Option("results.json", help="Path to save the simulation statistics"),
-    optimize: bool = typer.Option(False, "--optimize", help="Run Optuna Bayesian optimization loop instead of standard simulation"),
-    trials: int = typer.Option(50, help="Number of optimization trials (if --optimize is set)")
+    optimize: bool = typer.Option(
+        False,
+        "--optimize",
+        help="Run Optuna Bayesian optimization loop instead of standard simulation",
+    ),
+    trials: int = typer.Option(50, help="Number of optimization trials (if --optimize is set)"),
 ) -> None:
     """Run the 3D Aerosol Transport Simulation via CLI."""
     if num_particles <= 0:
@@ -44,7 +51,11 @@ def main(
         raise typer.Exit(code=1)
 
     if optimize:
-        typer.secho(f"🚀 Deploying Agentic Benchmark (Optuna) over {trials} Trials...", fg=typer.colors.MAGENTA, bold=True)
+        typer.secho(
+            f"🚀 Deploying Agentic Benchmark (Optuna) over {trials} Trials...",
+            fg=typer.colors.MAGENTA,
+            bold=True,
+        )
         from psat.optimization import run_optimization
 
         study = run_optimization(n_trials=trials, num_particles=num_particles)
@@ -79,7 +90,7 @@ def main(
             q_charges=q_charges,
             eddy_diffusivity=eddy_diff,
             fluid_velocity_func=lambda x, y, z: bifurcating_flow_3d(x, y, z, L1=l1, theta=theta),
-            save_trajectories=save_traj
+            save_trajectories=save_traj,
         )
     except Exception as e:
         typer.secho(f"Initialization Failed: {e}", fg=typer.colors.RED)
@@ -109,7 +120,7 @@ def main(
         "total_time_s": time,
         "deposition_efficiency": dep_eff,
         "wall_deposition_fraction": wall_dep,
-        "bottom_deposition_fraction": bot_dep
+        "bottom_deposition_fraction": bot_dep,
     }
     with open(output, "w") as f:
         json.dump(results, f, indent=4)
@@ -119,12 +130,13 @@ def main(
         typer.echo("Visualizing results...")
         if visualize == "animate":
             from psat.visualization import animate_trajectories
+
             typer.echo("Rendering animation...")
             animate_trajectories(
                 sim.trajectories,
                 domain_limits,
                 num_particles_to_plot=min(300, num_particles),
-                save_path="simulation.gif"
+                save_path="simulation.gif",
             )
             typer.echo("Animation saved as simulation.gif")
         elif visualize == "plot":
@@ -132,7 +144,7 @@ def main(
                 sim.trajectories,
                 domain_limits,
                 num_particles_to_plot=min(300, num_particles),
-                save_path="trajectories.png"
+                save_path="trajectories.png",
             )
             typer.echo("Visualizations saved as trajectories.png and deposition.png")
 
@@ -145,8 +157,9 @@ def main(
         domain_limits,
         wall_deposit=sim.wall_deposit,
         bottom_deposit=sim.bottom_deposit,
-        save_path="deposition.png"
+        save_path="deposition.png",
     )
+
 
 if __name__ == "__main__":
     app()

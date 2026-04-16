@@ -34,7 +34,7 @@ def objective(trial: optuna.Trial, num_particles: int = 500, total_time: float =
         q_charges=q_charges,
         eddy_diffusivity=0.0,
         fluid_velocity_func=lambda x, y, z: bifurcating_flow_3d(x, y, z),
-        save_trajectories=False
+        save_trajectories=False,
     )
 
     # 3. Suppress all but physics
@@ -49,6 +49,7 @@ def objective(trial: optuna.Trial, num_particles: int = 500, total_time: float =
 
     score = bottom_dep - wall_dep
     return score
+
 
 def run_optimization(n_trials: int = 50, num_particles: int = 500) -> optuna.Study:
     """

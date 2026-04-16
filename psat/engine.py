@@ -4,6 +4,7 @@ PSAT Physics Engine
 Implements the 3D Euler-Maruyama stochastic simulation for aerosol transport
 through a Y-bifurcating airway geometry.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -15,6 +16,7 @@ import numpy as np
 # Try resolving Pybind11 Native headers, falling back onto lightning-fast Numba if uncompiled
 try:
     import psat_cpp_core
+
     CPP_ENABLED = True
 except ImportError:
     CPP_ENABLED = False
@@ -73,7 +75,7 @@ def bifurcating_flow_3d(
     # ── Main pipe (Poiseuille profile) ──────────────────────────────────────
     mask_main = x <= L1
     r2 = y[mask_main] ** 2 + z[mask_main] ** 2
-    ux[mask_main] = np.where(r2 <= R ** 2, umax * (1 - r2 / R ** 2), 0.0)
+    ux[mask_main] = np.where(r2 <= R**2, umax * (1 - r2 / R**2), 0.0)
 
     # ── Branch region (simplified constant-velocity directional flow) ────────
     mask_branch = x > L1
@@ -88,6 +90,7 @@ def bifurcating_flow_3d(
 # =========================================================================
 # The JIT-compiled Physics loop (Fallback if C++ fails)
 # =========================================================================
+
 
 @numba.njit(fastmath=True)
 def jitted_physics_core_numba(
@@ -126,8 +129,8 @@ def jitted_physics_core_numba(
     cos_theta = np.cos(theta)
     tan_theta = np.tan(theta)
 
-    R_main_sq = R_main ** 2
-    R_branch_sq = R_branch ** 2
+    R_main_sq = R_main**2
+    R_branch_sq = R_branch**2
 
     for i in range(n_active):
         # Deterministic drift
@@ -151,15 +154,15 @@ def jitted_physics_core_numba(
         hb = False
 
         if nx <= L1:
-            if ny ** 2 + nz ** 2 >= R_main_sq:
+            if ny**2 + nz**2 >= R_main_sq:
                 hw = True
         else:
             xb = nx - L1
             yc_up = xb * tan_theta
             yc_down = -xb * tan_theta
 
-            dist_up2 = (ny - yc_up) ** 2 * cos_theta ** 2 + nz ** 2
-            dist_down2 = (ny - yc_down) ** 2 * cos_theta ** 2 + nz ** 2
+            dist_up2 = (ny - yc_up) ** 2 * cos_theta**2 + nz**2
+            dist_down2 = (ny - yc_down) ** 2 * cos_theta**2 + nz**2
 
             if dist_up2 >= R_branch_sq and dist_down2 >= R_branch_sq:
                 hw = True
@@ -172,6 +175,7 @@ def jitted_physics_core_numba(
         z_new[i] = nz
         hit_wall[i] = hw
         hit_bottom[i] = hb
+
 
 # Dynamic Hook
 if CPP_ENABLED:
@@ -272,14 +276,14 @@ class AerosolSimulation:
             self.dp = np.random.lognormal(mean=mu_ln, sigma=sigma_ln, size=self.N)
 
         # ── Derived particle properties ──────────────────────────────────────
-        self.mass: np.ndarray = particle_density * (np.pi / 6.0) * (self.dp ** 3)
+        self.mass: np.ndarray = particle_density * (np.pi / 6.0) * (self.dp**3)
         knudsen: np.ndarray = 2 * lambda_air / self.dp
 
         # Cunningham slip correction: C_c = 1 + Kn(1.257 + 0.4 exp(-1.1/Kn))
         self.Cc: np.ndarray = 1 + knudsen * (1.257 + 0.4 * np.exp(-1.1 / knudsen))
 
         # Stokes relaxation time: τ = ρ_p d_p² C_c / (18 μ)
-        self.tau: np.ndarray = (self.rho_p * self.dp ** 2 * self.Cc) / (18 * self.mu)
+        self.tau: np.ndarray = (self.rho_p * self.dp**2 * self.Cc) / (18 * self.mu)
 
         # Brownian diffusivity: D = k_B T C_c / (3 π μ d_p)
         self.D_brownian: np.ndarray = (k_B * self.T * self.Cc) / (3 * np.pi * self.mu * self.dp)
@@ -294,9 +298,9 @@ class AerosolSimulation:
         self.v_th: np.ndarray = -K_th_factor * self.grad_T
 
         # Electrical mobility: Z = q e C_c / (3 π μ d_p)
-        self.Z_mobility: np.ndarray = (
-            q_charges * e_charge * self.Cc
-        ) / (3 * np.pi * self.mu * self.dp)
+        self.Z_mobility: np.ndarray = (q_charges * e_charge * self.Cc) / (
+            3 * np.pi * self.mu * self.dp
+        )
 
         # ── Flow field ───────────────────────────────────────────────────────
         if fluid_velocity_func is None:
@@ -321,9 +325,7 @@ class AerosolSimulation:
 
         self.save_trajectories: bool = save_trajectories
         if self.save_trajectories:
-            self.trajectories: np.ndarray | None = np.zeros(
-                (self.n_steps + 1, self.N, 3)
-            )
+            self.trajectories: np.ndarray | None = np.zeros((self.n_steps + 1, self.N, 3))
         else:
             self.trajectories = None
 
@@ -401,13 +403,33 @@ class AerosolSimulation:
 
         # JIT-compiled hot path (Numba → LLVM → native machine code)
         jitted_physics_core(
-            x_act, y_act, z_act, ux, uy, uz,
-            self.tau[active], self.D_total[active], self.Z_mobility[active],
-            np.float64(self.v_th[0]), np.float64(self.v_th[1]), np.float64(self.v_th[2]),
-            np.float64(self.E_field[0]), np.float64(self.E_field[1]), np.float64(self.E_field[2]),
-            self.dt, g,
-            xmin, xmax, ymax, L1, theta,
-            x_new, y_new, z_new, hit_wall, hit_bottom,
+            x_act,
+            y_act,
+            z_act,
+            ux,
+            uy,
+            uz,
+            self.tau[active],
+            self.D_total[active],
+            self.Z_mobility[active],
+            np.float64(self.v_th[0]),
+            np.float64(self.v_th[1]),
+            np.float64(self.v_th[2]),
+            np.float64(self.E_field[0]),
+            np.float64(self.E_field[1]),
+            np.float64(self.E_field[2]),
+            self.dt,
+            g,
+            xmin,
+            xmax,
+            ymax,
+            L1,
+            theta,
+            x_new,
+            y_new,
+            z_new,
+            hit_wall,
+            hit_bottom,
         )
 
         deposited_this_step: np.ndarray = hit_wall | hit_bottom | (x_new <= xmin)
@@ -442,7 +464,7 @@ class AerosolSimulation:
             self.step(i, L1=L1, theta=theta)
             if not np.any(~self.is_deposited):
                 if self.save_trajectories:
-                    self.trajectories = self.trajectories[:i + 1]  # type: ignore[index]
+                    self.trajectories = self.trajectories[: i + 1]  # type: ignore[index]
                 break
 
     # ── Deposition statistics ────────────────────────────────────────────────

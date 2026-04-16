@@ -6,13 +6,14 @@ from psat.visualization import plot_deposition, plot_trajectories, plot_trajecto
 
 
 def test_plot_trajectories_save(tmp_path):
-    trajectories = np.random.rand(5, 10, 3) # 5 steps, 10 particles, 3D
+    trajectories = np.random.rand(5, 10, 3)  # 5 steps, 10 particles, 3D
     domain = ((0, 1), (0, 1), (0, 1))
 
     save_file = tmp_path / "traj.png"
     plot_trajectories(trajectories, domain, num_particles_to_plot=5, save_path=str(save_file))
 
     assert os.path.exists(save_file)
+
 
 def test_plot_deposition_save(tmp_path):
     final_positions = np.random.rand(10, 3)
@@ -21,9 +22,16 @@ def test_plot_deposition_save(tmp_path):
     domain = ((0, 1), (0, 1), (0, 1))
 
     save_file = tmp_path / "dep.png"
-    plot_deposition(final_positions, domain, wall_deposit=wall_dep, bottom_deposit=bot_dep, save_path=str(save_file))
+    plot_deposition(
+        final_positions,
+        domain,
+        wall_deposit=wall_dep,
+        bottom_deposit=bot_dep,
+        save_path=str(save_file),
+    )
 
     assert os.path.exists(save_file)
+
 
 def test_plotly_generation():
     trajectories = np.random.rand(2, 5, 3)

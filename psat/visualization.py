@@ -4,6 +4,7 @@ PSAT Visualization Module
 Provides static trajectory plots, deposition histograms, and animated GIFs
 for inspecting aerosol simulation results.
 """
+
 from __future__ import annotations
 
 import matplotlib.animation as animation
@@ -217,9 +218,7 @@ def plot_trajectories_plotly(
     """
     ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = domain_limits
     n_particles = trajectories.shape[1]
-    plot_idx = np.random.choice(
-        n_particles, min(n_particles, num_particles_to_plot), replace=False
-    )
+    plot_idx = np.random.choice(n_particles, min(n_particles, num_particles_to_plot), replace=False)
 
     fig = go.Figure()
 
@@ -229,23 +228,29 @@ def plot_trajectories_plotly(
         y = trajectories[:, idx, 1]
         z = trajectories[:, idx, 2]
 
-        fig.add_trace(go.Scatter3d(
-            x=x, y=y, z=z,
-            mode='lines',
-            line=dict(width=2, color='rgba(79, 142, 247, 0.5)'),
-            showlegend=False
-        ))
+        fig.add_trace(
+            go.Scatter3d(
+                x=x,
+                y=y,
+                z=z,
+                mode="lines",
+                line=dict(width=2, color="rgba(79, 142, 247, 0.5)"),
+                showlegend=False,
+            )
+        )
 
     # Add invisible boundary boxes to force Plotly to scale correctly
-    fig.add_trace(go.Scatter3d(
-        x=[xmin, xmax, xmax, xmin, xmin, xmax, xmax, xmin],
-        y=[ymin, ymin, ymax, ymax, ymin, ymin, ymax, ymax],
-        z=[zmin, zmin, zmin, zmin, zmax, zmax, zmax, zmax],
-        mode='markers',
-        marker=dict(size=0.1, color='rgba(0,0,0,0)'),
-        showlegend=False,
-        hoverinfo='skip'
-    ))
+    fig.add_trace(
+        go.Scatter3d(
+            x=[xmin, xmax, xmax, xmin, xmin, xmax, xmax, xmin],
+            y=[ymin, ymin, ymax, ymax, ymin, ymin, ymax, ymax],
+            z=[zmin, zmin, zmin, zmin, zmax, zmax, zmax, zmax],
+            mode="markers",
+            marker=dict(size=0.1, color="rgba(0,0,0,0)"),
+            showlegend=False,
+            hoverinfo="skip",
+        )
+    )
 
     # Configure Layout
     fig.update_layout(
@@ -253,14 +258,14 @@ def plot_trajectories_plotly(
             xaxis_title="Axial x (m)",
             yaxis_title="Radial y (m)",
             zaxis_title="Depth z (m)",
-            xaxis=dict(range=[xmin, xmax], gridcolor='rgba(255,255,255,0.2)'),
-            yaxis=dict(range=[ymin, ymax], gridcolor='rgba(255,255,255,0.2)'),
-            zaxis=dict(range=[zmin, zmax], gridcolor='rgba(255,255,255,0.2)'),
-            bgcolor='rgba(14, 17, 23, 1)'
+            xaxis=dict(range=[xmin, xmax], gridcolor="rgba(255,255,255,0.2)"),
+            yaxis=dict(range=[ymin, ymax], gridcolor="rgba(255,255,255,0.2)"),
+            zaxis=dict(range=[zmin, zmax], gridcolor="rgba(255,255,255,0.2)"),
+            bgcolor="rgba(14, 17, 23, 1)",
         ),
         margin=dict(l=0, r=0, b=0, t=30),
-        paper_bgcolor='rgba(14, 17, 23, 1)',
-        font=dict(color='white')
+        paper_bgcolor="rgba(14, 17, 23, 1)",
+        font=dict(color="white"),
     )
 
     return fig

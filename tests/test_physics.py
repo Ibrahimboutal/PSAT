@@ -13,11 +13,13 @@ def test_terminal_velocity():
         domain_limits=((0, 1), (-1, 1), (-1, 1)),
         mean_diameter=10e-6,
         fluid_velocity_func=lambda x, y, z: (np.zeros_like(x), np.zeros_like(y), np.zeros_like(z)),
-        eddy_diffusivity=0.0
+        eddy_diffusivity=0.0,
     )
     sim.D_total[:] = 0.0  # Turn off Brownian motion for a deterministic test
 
-    sim.initialize_particles(x_coords=np.array([0.0]), y_coords=np.array([0.0]), z_coords=np.array([0.0]))
+    sim.initialize_particles(
+        x_coords=np.array([0.0]), y_coords=np.array([0.0]), z_coords=np.array([0.0])
+    )
 
     # Run a single step
     sim.step(1)
@@ -29,6 +31,7 @@ def test_terminal_velocity():
     assert sim.positions[0, 0] == 0.0, "Expected x to remain 0 with no flow."
     assert sim.positions[0, 2] == 0.0, "Expected z to remain 0 with no flow."
 
+
 def test_mass_conservation():
     """Test that the number of deposited and active particles always sums to N."""
     sim = AerosolSimulation(
@@ -36,7 +39,11 @@ def test_mass_conservation():
         dt=0.01,
         total_time=0.2,
         domain_limits=((0, 0.05), (-0.01, 0.01), (-0.01, 0.01)),
-        fluid_velocity_func=lambda x, y, z: (np.ones_like(x)*0.5, np.zeros_like(y), np.zeros_like(z))
+        fluid_velocity_func=lambda x, y, z: (
+            np.ones_like(x) * 0.5,
+            np.zeros_like(y),
+            np.zeros_like(z),
+        ),
     )
     sim.initialize_particles()
     sim.run()
@@ -47,6 +54,7 @@ def test_mass_conservation():
 
     assert active_particles + deposited_particles == sim.N, "Mass conservation violated!"
 
+
 def test_deterministic_bounds_no_diffusion():
     """Test that setting diffusion to 0 produces deterministic bounds outputs."""
     sim = AerosolSimulation(
@@ -54,8 +62,12 @@ def test_deterministic_bounds_no_diffusion():
         dt=0.001,
         total_time=0.01,
         domain_limits=((0, 0.1), (-0.01, 0.01), (-0.01, 0.01)),
-        fluid_velocity_func=lambda x, y, z: (np.ones_like(x)*0.1, np.zeros_like(y), np.zeros_like(z)),
-        eddy_diffusivity=0.0
+        fluid_velocity_func=lambda x, y, z: (
+            np.ones_like(x) * 0.1,
+            np.zeros_like(y),
+            np.zeros_like(z),
+        ),
+        eddy_diffusivity=0.0,
     )
     sim.D_total[:] = 0.0  # Force zero diffusion
 

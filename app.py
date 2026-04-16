@@ -5,6 +5,7 @@ Wraps the aerosol simulation engine in an interactive browser interface.
 Deploy in one click to Streamlit Community Cloud:
   https://streamlit.io/cloud
 """
+
 from __future__ import annotations
 
 import time
@@ -111,20 +112,17 @@ else:
     render_metric_card(c4, elapsed, "Runtime", "#ffd43b", is_time=True)
 
     # ── Raw Data Export ────────────────────────────────────────────────────────
-    df_results = pd.DataFrame(
-        sim.positions,
-        columns=["x (m)", "y (m)", "z (m)"]
-    )
+    df_results = pd.DataFrame(sim.positions, columns=["x (m)", "y (m)", "z (m)"])
     df_results["Deposited"] = sim.is_deposited
     df_results["Wall Deposit"] = sim.wall_deposit
     df_results["Deep Lung Deposit"] = sim.bottom_deposit
 
-    csv_data = df_results.to_csv(index=False).encode('utf-8')
+    csv_data = df_results.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="⬇️ Download Raw Particle Data (CSV)",
         data=csv_data,
-        file_name='psat_particle_data.csv',
-        mime='text/csv',
+        file_name="psat_particle_data.csv",
+        mime="text/csv",
     )
 
     st.markdown("---")
@@ -164,9 +162,7 @@ else:
         st.subheader("🕸️ Interactive 3D Trajectories")
         with st.spinner("Rendering 3D Plotly graph …"):
             fig_3d = plot_trajectories_plotly(
-                sim.trajectories,
-                domain_limits,
-                num_particles_to_plot=min(150, num_particles)
+                sim.trajectories, domain_limits, num_particles_to_plot=min(150, num_particles)
             )
         st.plotly_chart(fig_3d, use_container_width=True)
 

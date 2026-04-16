@@ -56,7 +56,9 @@ def render_hero_banner() -> None:
     )
 
 
-def render_metric_card(col, value: float, label: str, color: str = "#4f8ef7", is_time: bool = False) -> None:
+def render_metric_card(
+    col, value: float, label: str, color: str = "#4f8ef7", is_time: bool = False
+) -> None:
     display_value = f"{value:.2f}s" if is_time else f"{value:.1%}"
     col.markdown(
         f"""<div class="metric-card">
