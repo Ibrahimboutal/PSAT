@@ -19,7 +19,9 @@ dependencies = [
     "plotly",
     "pandas",
     "optuna",
-    "pybind11>=2.12.0"
+    "pybind11>=2.12.0",
+    "scikit-learn",
+    "scipy"
 ]
 
 [project.optional-dependencies]

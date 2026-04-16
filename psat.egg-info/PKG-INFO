@@ -15,6 +15,8 @@ Requires-Dist: plotly
 Requires-Dist: pandas
 Requires-Dist: optuna
 Requires-Dist: pybind11>=2.12.0
+Requires-Dist: scikit-learn
+Requires-Dist: scipy
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
