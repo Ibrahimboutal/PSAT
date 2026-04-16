@@ -8,9 +8,9 @@ from psat.engine import AerosolSimulation, bifurcating_flow_3d
 def objective(trial: optuna.Trial, num_particles: int = 500, total_time: float = 0.4) -> float:
     """
     Optuna objective function for evaluating Aerosol therapeutic profiles.
-    
+
     The score is determined by how precisely the particles deposit into
-    the Deep Lung (bottom_fraction) whilst minimizing airway throat 
+    the Deep Lung (bottom_fraction) whilst minimizing airway throat
     impaction (wall_fraction).
     """
     # 1. Define hyperparameter search spaces
@@ -59,6 +59,6 @@ def run_optimization(n_trials: int = 50, num_particles: int = 500) -> optuna.Stu
     # Wrap the objective parameters into a strict Optuna callable
     def func(trial: optuna.Trial) -> float:
         return objective(trial, num_particles=num_particles)
-    
+
     study.optimize(func, n_trials=n_trials)
     return study
