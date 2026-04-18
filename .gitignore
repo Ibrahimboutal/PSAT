@@ -20,6 +20,7 @@ results.json
 *.png
 *.gif
 *.log
+*.html
 
 # Windows thumbnail cache
 Thumbs.db
