@@ -54,6 +54,7 @@ with st.sidebar:
 
     st.subheader("Outputs")
     generate_3d_plot = st.checkbox("Generate interactive 3D trajectories (slower)", value=False)
+    run_analytics = st.checkbox("🔬 Tissue Exposure Analytics (clustering)", value=False)
 
     run_btn = st.button("▶  Run Simulation", type="primary", use_container_width=True)
 
@@ -188,34 +189,100 @@ else:
         st.pyplot(fig2)
         plt.close(fig2)
 
-    # ── Tissue Exposure Analytics (Phase 3) ──────────────────────────────────
-    st.markdown("---")
-    st.subheader("🧬 Tissue Exposure Analytics")
-
-    run_analytics = st.checkbox("Run Hierarchical Hotspot Clustering (Computes density zones)")
-
+    # ── Tissue Exposure Analytics ─────────────────────────────────────────────
     if run_analytics:
-        from psat.analytics import compute_hierarchical_clusters, generate_dendrogram
-        from psat.visualization import plot_deposition_clusters_plotly
+        st.markdown("---")
+        st.subheader("🔬 Tissue Exposure Analytics")
 
-        deposited_positions = sim.positions[sim.is_deposited]
+        deposited_pos = sim.positions[sim.is_deposited]
+        n_dep = len(deposited_pos)
 
-        if len(deposited_positions) < 2:
-            st.warning("Not enough deposited particles to run clustering.")
+        if n_dep < 2:
+            st.warning(
+                "Not enough deposited particles for clustering. "
+                "Try increasing particle count or simulation time."
+            )
         else:
-            with st.spinner("Clustering deposition data..."):
-                sample_pos, labels = compute_hierarchical_clusters(deposited_positions)
+            from psat.analytics import compute_hierarchical_clusters
+            from psat.visualization import plot_deposition_clusters_plotly
 
-                # Display the 3D clustered map
-                fig_clusters = plot_deposition_clusters_plotly(sample_pos, labels, domain_limits)
-                st.plotly_chart(fig_clusters, use_container_width=True)
+            with st.spinner("Running hierarchical clustering …"):
+                sample_pos, labels = compute_hierarchical_clusters(deposited_pos)
+                n_clusters = len(np.unique(labels))
 
-                # Generate and display the Dendrogram
-                generate_dendrogram(sample_pos, "cluster_dendrogram.png")
-                st.image(
-                    "cluster_dendrogram.png",
-                    caption="Ward Linkage Dendrogram of Particle Collisions",
+            # Summary metrics
+            st.markdown(
+                f"**{n_dep} deposited particles** → "
+                f"**{n_clusters} hot-spot clusters** identified."
+            )
+            col_a, col_b, col_c = st.columns(3)
+            col_a.metric("Deposited Particles", n_dep)
+            col_b.metric("Hot-Spot Clusters", n_clusters)
+            col_c.metric("Sampled for Clustering", len(sample_pos))
+
+            # 3-D hot-spot scatter
+            st.markdown("#### 🗺️ 3D Hot-Spot Map")
+            fig_cl = plot_deposition_clusters_plotly(sample_pos, labels, domain_limits)
+            st.plotly_chart(fig_cl, use_container_width=True)
+
+            # 2-D axial exposure heat-map
+            st.markdown("#### 🌡️ Axial Exposure Density")
+            ((xmin, xmax), (ymin, ymax), _) = domain_limits
+            fig_hm, ax_hm = plt.subplots(figsize=(10, 3))
+            fig_hm.patch.set_facecolor("#0e1117")
+            ax_hm.set_facecolor("#0e1117")
+            h, xedges, yedges = np.histogram2d(
+                sample_pos[:, 0],
+                sample_pos[:, 1],
+                bins=[60, 30],
+                range=[[xmin, xmax], [ymin, ymax]],
+            )
+            im = ax_hm.imshow(
+                h.T,
+                origin="lower",
+                aspect="auto",
+                extent=[xmin, xmax, ymin, ymax],
+                cmap="inferno",
+                interpolation="bilinear",
+            )
+            plt.colorbar(im, ax=ax_hm, label="Particle Count", shrink=0.8)
+            ax_hm.set_xlabel("Axial Position x (m)", color="#ccc")
+            ax_hm.set_ylabel("Radial Position y (m)", color="#ccc")
+            ax_hm.set_title("Tissue Exposure Density Map", color="white")
+            ax_hm.tick_params(colors="#aaa")
+            ax_hm.spines[:].set_color("#333")
+            st.pyplot(fig_hm)
+            plt.close(fig_hm)
+
+            # Per-cluster stats table
+            st.markdown("#### 📋 Per-Cluster Statistics")
+            rows = []
+            for lbl in np.unique(labels):
+                pts = sample_pos[labels == lbl]
+                rows.append(
+                    {
+                        "Cluster": int(lbl),
+                        "Particles": len(pts),
+                        "Mean x (m)": f"{pts[:, 0].mean():.4f}",
+                        "Mean y (m)": f"{pts[:, 1].mean():.4f}",
+                        "Mean z (m)": f"{pts[:, 2].mean():.4f}",
+                        "x Spread (m)": f"{pts[:, 0].std():.5f}",
+                    }
                 )
+            st.dataframe(
+                pd.DataFrame(rows).set_index("Cluster"),
+                use_container_width=True,
+            )
+
+            # Cluster CSV download
+            df_export = pd.DataFrame(sample_pos, columns=["x (m)", "y (m)", "z (m)"])
+            df_export["Cluster"] = labels
+            st.download_button(
+                label="⬇️ Download Cluster Data (CSV)",
+                data=df_export.to_csv(index=False).encode("utf-8"),
+                file_name="psat_cluster_data.csv",
+                mime="text/csv",
+            )
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("---")
