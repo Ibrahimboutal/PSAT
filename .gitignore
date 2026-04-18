@@ -21,6 +21,11 @@ results.json
 *.gif
 *.log
 *.html
+*.pdf
+*.csv
+*.txt
+*.json
+
 
 # Windows thumbnail cache
 Thumbs.db

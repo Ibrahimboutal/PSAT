@@ -188,6 +188,35 @@ else:
         st.pyplot(fig2)
         plt.close(fig2)
 
+    # ── Tissue Exposure Analytics (Phase 3) ──────────────────────────────────
+    st.markdown("---")
+    st.subheader("🧬 Tissue Exposure Analytics")
+
+    run_analytics = st.checkbox("Run Hierarchical Hotspot Clustering (Computes density zones)")
+
+    if run_analytics:
+        from psat.analytics import compute_hierarchical_clusters, generate_dendrogram
+        from psat.visualization import plot_deposition_clusters_plotly
+
+        deposited_positions = sim.positions[sim.is_deposited]
+
+        if len(deposited_positions) < 2:
+            st.warning("Not enough deposited particles to run clustering.")
+        else:
+            with st.spinner("Clustering deposition data..."):
+                sample_pos, labels = compute_hierarchical_clusters(deposited_positions)
+
+                # Display the 3D clustered map
+                fig_clusters = plot_deposition_clusters_plotly(sample_pos, labels, domain_limits)
+                st.plotly_chart(fig_clusters, use_container_width=True)
+
+                # Generate and display the Dendrogram
+                generate_dendrogram(sample_pos, "cluster_dendrogram.png")
+                st.image(
+                    "cluster_dendrogram.png",
+                    caption="Ward Linkage Dendrogram of Particle Collisions",
+                )
+
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown(
