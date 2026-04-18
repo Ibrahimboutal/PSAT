@@ -212,8 +212,7 @@ else:
 
             # Summary metrics
             st.markdown(
-                f"**{n_dep} deposited particles** → "
-                f"**{n_clusters} hot-spot clusters** identified."
+                f"**{n_dep} deposited particles** → **{n_clusters} hot-spot clusters** identified."
             )
             col_a, col_b, col_c = st.columns(3)
             col_a.metric("Deposited Particles", n_dep)
