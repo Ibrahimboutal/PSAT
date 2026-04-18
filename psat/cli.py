@@ -41,6 +41,11 @@ def main(
         help="Run Optuna Bayesian optimization loop instead of standard simulation",
     ),
     trials: int = typer.Option(50, help="Number of optimization trials (if --optimize is set)"),
+    analytics: bool = typer.Option(
+        False,
+        "--analytics",
+        help="Run hierarchical clustering on deposited particles and save hot-spot plot",
+    ),
 ) -> None:
     """Run the 3D Aerosol Transport Simulation via CLI."""
     if num_particles <= 0:
@@ -159,6 +164,25 @@ def main(
         bottom_deposit=sim.bottom_deposit,
         save_path="deposition.png",
     )
+
+    if analytics:
+        from psat.analytics import compute_hierarchical_clusters, generate_dendrogram
+        from psat.visualization import plot_deposition_clusters_plotly
+
+        deposited_positions = sim.positions[sim.is_deposited]
+        if len(deposited_positions) < 2:
+            typer.secho("Not enough deposited particles for clustering.", fg=typer.colors.YELLOW)
+        else:
+            typer.echo("🔬 Running hierarchical hot-spot clustering...")
+            sample_pos, labels = compute_hierarchical_clusters(deposited_positions)
+            generate_dendrogram(sample_pos, save_path="cluster_dendrogram.png")
+            fig = plot_deposition_clusters_plotly(sample_pos, labels, domain_limits)
+            fig.write_html("cluster_hotspots.html")
+            typer.secho(
+                "Clustering complete! Saved: cluster_dendrogram.png + cluster_hotspots.html",
+                fg=typer.colors.CYAN,
+                bold=True,
+            )
 
 
 if __name__ == "__main__":

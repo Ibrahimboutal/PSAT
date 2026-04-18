@@ -269,3 +269,69 @@ def plot_trajectories_plotly(
     )
 
     return fig
+
+
+def plot_deposition_clusters_plotly(
+    positions: np.ndarray,
+    labels: np.ndarray,
+    domain_limits: tuple,
+):
+    """Render Hot-Spot groups identified via unsupervised hierarchical clustering.
+
+    Parameters
+    ----------
+    positions : np.ndarray, shape (N, 3)
+        Deposited particle coordinates (m).
+    labels : np.ndarray, shape (N,)
+        Integer cluster label for every sampled particle.
+    domain_limits : tuple
+        ``((xmin, xmax), (ymin, ymax), (zmin, zmax))`` in metres.
+    """
+    import plotly.graph_objects as go
+
+    ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = domain_limits
+
+    fig = go.Figure()
+    unique_labels = np.unique(labels)
+    palette = [
+        "#636EFA",
+        "#EF553B",
+        "#00CC96",
+        "#AB63FA",
+        "#FFA15A",
+        "#19D3F3",
+        "#FF6692",
+        "#B6E880",
+    ]
+
+    for label in unique_labels:
+        idx = labels == label
+        pts = positions[idx]
+        color = palette[int(label) % len(palette)]
+        fig.add_trace(
+            go.Scatter3d(
+                x=pts[:, 0],
+                y=pts[:, 1],
+                z=pts[:, 2],
+                mode="markers",
+                marker=dict(size=4, color=color, opacity=0.8),
+                name=f"Cluster {label}",
+            )
+        )
+
+    fig.update_layout(
+        scene=dict(
+            xaxis_title="Axial x (m)",
+            yaxis_title="Radial y (m)",
+            zaxis_title="Depth z (m)",
+            xaxis=dict(range=[xmin, xmax], gridcolor="rgba(255,255,255,0.2)"),
+            yaxis=dict(range=[ymin, ymax], gridcolor="rgba(255,255,255,0.2)"),
+            zaxis=dict(range=[zmin, zmax], gridcolor="rgba(255,255,255,0.2)"),
+            bgcolor="rgba(14, 17, 23, 1)",
+        ),
+        margin=dict(l=0, r=0, b=0, t=40),
+        paper_bgcolor="rgba(14, 17, 23, 1)",
+        font=dict(color="white"),
+        title="Hierarchical Tissue Clustering — Hot-Spots",
+    )
+    return fig
