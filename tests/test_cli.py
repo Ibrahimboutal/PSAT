@@ -128,7 +128,7 @@ def test_cli_cfd_file_happy_path(tmp_path, monkeypatch):
         ],
     )
     assert result.exit_code == 0, result.stdout
-    assert "CFD field loaded" in result.stdout
+    assert "[CFD LOADED] CFD field" in result.stdout
 
 
 def test_cli_cfd_file_load_failure(tmp_path, monkeypatch):
