@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from psat.cfd_loader import detect_and_load, wrap_steady_flow
 from psat.engine import AerosolSimulation, bifurcating_flow_3d
 from psat.visualization import plot_trajectories_plotly
 from ui_components import load_css, render_hero_banner, render_metric_card
@@ -92,8 +93,6 @@ else:
 
     # ── Resolve velocity field ─────────────────────────────────────────────
     if cfd_file is not None:
-        from psat.cfd_loader import detect_and_load, wrap_steady_flow
-
         suffix = Path(cfd_file.name).suffix
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(cfd_file.read())
