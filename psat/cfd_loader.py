@@ -106,9 +106,7 @@ def load_csv_flow(path: str | Path) -> FlowField:
     df = pd.read_csv(path)
     missing = _REQUIRED_CSV_COLS - set(df.columns.str.strip().str.lower())
     if missing:
-        raise ValueError(
-            f"CSV is missing required columns: {missing}. " f"Found: {list(df.columns)}"
-        )
+        raise ValueError(f"CSV is missing required columns: {missing}. Found: {list(df.columns)}")
 
     df.columns = df.columns.str.strip().str.lower()
     points = df[["x", "y", "z"]].to_numpy(dtype=np.float64)
@@ -150,7 +148,7 @@ def load_vtk_flow(path: str | Path) -> FlowField:
         import pyvista as pv  # noqa: PLC0415
     except ImportError as exc:
         raise ImportError(
-            "pyvista is required to load VTK files. " 'Install it with: pip install "psat[cfd]"'
+            'pyvista is required to load VTK files. Install it with: pip install "psat[cfd]"'
         ) from exc
 
     mesh = pv.read(str(path))
