@@ -46,6 +46,11 @@ def main(
         "--analytics",
         help="Run hierarchical clustering on deposited particles and save hot-spot plot",
     ),
+    cfd_file: str = typer.Option(
+        "",
+        "--cfd-file",
+        help="Path to a CFD velocity field file (.csv, .vtk, or .vtu). Overrides analytic flow.",
+    ),
 ) -> None:
     """Run the 3D Aerosol Transport Simulation via CLI."""
     if num_particles <= 0:
@@ -82,6 +87,19 @@ def main(
 
     save_traj = visualize in ["plot", "animate"]
 
+    # Resolve velocity field (before sim construction)
+    if cfd_file:
+        from psat.cfd_loader import detect_and_load
+
+        try:
+            flow_func = detect_and_load(cfd_file)
+            typer.secho(f"\u2705 CFD field loaded: {cfd_file}", fg=typer.colors.CYAN)
+        except Exception as exc:  # noqa: BLE001
+            typer.secho(f"Failed to load CFD file: {exc}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+    else:
+        flow_func = lambda x, y, z: bifurcating_flow_3d(x, y, z, L1=l1, theta=theta)  # noqa: E731
+
     try:
         sim = AerosolSimulation(
             num_particles=num_particles,
@@ -94,7 +112,7 @@ def main(
             E_field=(e_field_x, e_field_y, e_field_z),
             q_charges=q_charges,
             eddy_diffusivity=eddy_diff,
-            fluid_velocity_func=lambda x, y, z: bifurcating_flow_3d(x, y, z, L1=l1, theta=theta),
+            fluid_velocity_func=flow_func,
             save_trajectories=save_traj,
         )
     except Exception as e:

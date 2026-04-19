@@ -8,6 +8,7 @@ Deploy in one click to Streamlit Community Cloud:
 
 from __future__ import annotations
 
+import tempfile
 import time
 from pathlib import Path
 
@@ -52,6 +53,16 @@ with st.sidebar:
     E_field_y = st.number_input("E-field y-component (V/m)", value=0.0, step=100.0)
     q_charges = st.number_input("Particle charge (elementary units)", value=0, step=1)
 
+    st.subheader("Velocity Field")
+    cfd_file = st.file_uploader(
+        "Upload CFD velocity field (optional)",
+        type=["csv", "vtk", "vtu"],
+        help=(
+            "CSV must have columns: x, y, z, ux, uy, uz. "
+            "VTK/VTU requires pyvista (pip install psat[cfd])."
+        ),
+    )
+
     st.subheader("Outputs")
     generate_3d_plot = st.checkbox("Generate interactive 3D trajectories (slower)", value=False)
     run_analytics = st.checkbox("🔬 Tissue Exposure Analytics (clustering)", value=False)
@@ -64,7 +75,9 @@ if not run_btn:
         "👈 **Adjust the parameters in the sidebar** and click **Run Simulation** to begin.\n\n"
         "The simulator will compute particle trajectories through a 3D Y-bifurcating airway, "
         "applying Brownian diffusion, gravitational settling, the Cunningham slip factor, and "
-        "— if enabled — thermophoresis and electrostatic forces."
+        "— if enabled — thermophoresis and electrostatic forces.\n\n"
+        "**New in Phase 4:** Upload a real CFD velocity field (CSV or VTK) to replace the "
+        "built-in analytic Poiseuille profile with solver-accurate flow data."
     )
 
     # Show the pre-generated GIF if it exists in the repo
@@ -76,6 +89,23 @@ if not run_btn:
 else:
     mean_diameter_m = mean_diameter_um * 1e-6
     domain_limits = ((0.0, 0.1), (-0.01, 0.01), (-0.01, 0.01))
+
+    # ── Resolve velocity field ─────────────────────────────────────────────
+    if cfd_file is not None:
+        from psat.cfd_loader import detect_and_load
+
+        suffix = Path(cfd_file.name).suffix
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(cfd_file.read())
+            tmp_path = tmp.name
+        try:
+            flow_func = detect_and_load(tmp_path)
+            st.sidebar.success(f"✅ CFD field loaded: {cfd_file.name}")
+        except Exception as exc:
+            st.error(f"Failed to load CFD file: {exc}")
+            st.stop()
+    else:
+        flow_func = lambda x, y, z: bifurcating_flow_3d(x, y, z)  # noqa: E731
 
     with st.spinner(f"Running simulation for {num_particles} particles …"):
         t0 = time.perf_counter()
@@ -91,7 +121,7 @@ else:
             E_field=(0.0, E_field_y, 0.0),
             q_charges=int(q_charges),
             eddy_diffusivity=eddy_diff,
-            fluid_velocity_func=lambda x, y, z: bifurcating_flow_3d(x, y, z),
+            fluid_velocity_func=flow_func,
             save_trajectories=generate_3d_plot,
         )
         sim.initialize_particles()
@@ -105,8 +135,12 @@ else:
 
     # ── Metric cards ──────────────────────────────────────────────────────────
     st.markdown(f"#### ✅ Simulation complete in **{elapsed:.2f} s** ({num_particles} particles)")
-    c1, c2, c3, c4 = st.columns(4)
+    if cfd_file is not None:
+        st.caption(f"🌬️ Velocity field: **{cfd_file.name}** (CFD import)")
+    else:
+        st.caption("🌬️ Velocity field: **analytic Poiseuille / bifurcating flow**")
 
+    c1, c2, c3, c4 = st.columns(4)
     render_metric_card(c1, dep_eff, "Total Deposition")
     render_metric_card(c2, wall_dep, "Wall Deposition", "#ff6b6b")
     render_metric_card(c3, bot_dep, "Reached Deep Lung", "#51cf66")
@@ -210,21 +244,19 @@ else:
                 sample_pos, labels = compute_hierarchical_clusters(deposited_pos)
                 n_clusters = len(np.unique(labels))
 
-            # Summary metrics
             st.markdown(
-                f"**{n_dep} deposited particles** → **{n_clusters} hot-spot clusters** identified."
+                f"**{n_dep} deposited particles** → "
+                f"**{n_clusters} hot-spot clusters** identified."
             )
             col_a, col_b, col_c = st.columns(3)
             col_a.metric("Deposited Particles", n_dep)
             col_b.metric("Hot-Spot Clusters", n_clusters)
             col_c.metric("Sampled for Clustering", len(sample_pos))
 
-            # 3-D hot-spot scatter
             st.markdown("#### 🗺️ 3D Hot-Spot Map")
             fig_cl = plot_deposition_clusters_plotly(sample_pos, labels, domain_limits)
             st.plotly_chart(fig_cl, use_container_width=True)
 
-            # 2-D axial exposure heat-map
             st.markdown("#### 🌡️ Axial Exposure Density")
             ((xmin, xmax), (ymin, ymax), _) = domain_limits
             fig_hm, ax_hm = plt.subplots(figsize=(10, 3))
@@ -253,7 +285,6 @@ else:
             st.pyplot(fig_hm)
             plt.close(fig_hm)
 
-            # Per-cluster stats table
             st.markdown("#### 📋 Per-Cluster Statistics")
             rows = []
             for lbl in np.unique(labels):
@@ -273,7 +304,6 @@ else:
                 use_container_width=True,
             )
 
-            # Cluster CSV download
             df_export = pd.DataFrame(sample_pos, columns=["x (m)", "y (m)", "z (m)"])
             df_export["Cluster"] = labels
             st.download_button(

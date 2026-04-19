@@ -36,6 +36,9 @@ dev = [
     "typer",
     "pre-commit",
 ]
+cfd = [
+    "pyvista",
+]
 
 [project.scripts]
 # Creates a terminal command 'psat' → psat/cli.py:app()
