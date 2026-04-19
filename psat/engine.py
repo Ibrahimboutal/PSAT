@@ -21,6 +21,7 @@ try:
 except ImportError:
     CPP_ENABLED = False
 
+from psat.cfd_loader import wrap_steady_flow
 from psat.constants import e_charge, g, k_B, lambda_air
 
 # Type alias for 3-component float tuples used throughout
@@ -35,6 +36,7 @@ def bifurcating_flow_3d(
     R: float = 0.01,
     theta: float = np.pi / 6,
     umax: float = 0.5,
+    t: float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute the 3D velocity field in a Y-branching pipe.
 
@@ -58,6 +60,8 @@ def bifurcating_flow_3d(
         Half-angle of bifurcation from the x-axis (radians). Default π/6.
     umax : float, optional
         Peak centreline velocity in the main pipe (m/s). Default 0.5.
+    t : float, optional
+        Current time (s). Default 0.0. Ignored for analytic steady flow.
 
     Returns
     -------
@@ -210,7 +214,7 @@ class AerosolSimulation:
     particle_density : float, optional
         Particle material density (kg/m³). Default 1000.
     fluid_velocity_func : callable, optional
-        Function ``f(x, y, z) -> (ux, uy, uz)`` returning np.ndarray
+        Function ``f(x, y, z, t) -> (ux, uy, uz)`` returning np.ndarray
         velocity fields.  Defaults to :func:`bifurcating_flow_3d`.
     T : float, optional
         Fluid temperature (K). Default 293.15.
@@ -305,10 +309,10 @@ class AerosolSimulation:
         # ── Flow field ───────────────────────────────────────────────────────
         if fluid_velocity_func is None:
             self.fluid_velocity_func: Callable[..., tuple[np.ndarray, np.ndarray, np.ndarray]] = (
-                bifurcating_flow_3d
+                wrap_steady_flow(bifurcating_flow_3d)
             )
         else:
-            self.fluid_velocity_func = fluid_velocity_func
+            self.fluid_velocity_func = wrap_steady_flow(fluid_velocity_func)
 
         # ── Pre-allocated Numba output buffers (avoids repeated allocation) ──
         self.x_buf: np.ndarray = np.empty(self.N, dtype=np.float64)
@@ -387,7 +391,8 @@ class AerosolSimulation:
         z_act = self.positions[active, 2]
 
         # Python-level advection — keeps custom flow functions fully compatible
-        ux, uy, uz = self.fluid_velocity_func(x_act, y_act, z_act)
+        t_current = step_idx * self.dt
+        ux, uy, uz = self.fluid_velocity_func(x_act, y_act, z_act, t_current)
 
         ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = self.domain_limits
 

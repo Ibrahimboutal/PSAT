@@ -92,20 +92,20 @@ else:
 
     # ── Resolve velocity field ─────────────────────────────────────────────
     if cfd_file is not None:
-        from psat.cfd_loader import detect_and_load
+        from psat.cfd_loader import detect_and_load, wrap_steady_flow
 
         suffix = Path(cfd_file.name).suffix
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(cfd_file.read())
             tmp_path = tmp.name
         try:
-            flow_func = detect_and_load(tmp_path)
+            flow_func = wrap_steady_flow(detect_and_load(tmp_path))
             st.sidebar.success(f"✅ CFD field loaded: {cfd_file.name}")
         except Exception as exc:
             st.error(f"Failed to load CFD file: {exc}")
             st.stop()
     else:
-        flow_func = lambda x, y, z: bifurcating_flow_3d(x, y, z)  # noqa: E731
+        flow_func = lambda x, y, z, t: bifurcating_flow_3d(x, y, z, t=t)  # noqa: E731
 
     with st.spinner(f"Running simulation for {num_particles} particles …"):
         t0 = time.perf_counter()

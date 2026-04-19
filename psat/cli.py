@@ -51,6 +51,9 @@ def main(
         "--cfd-file",
         help="Path to a CFD velocity field file (.csv, .vtk, or .vtu). Overrides analytic flow.",
     ),
+    xmax: float = typer.Option(0.1, help="Simulation domain length (m)"),
+    ymax: float = typer.Option(0.01, help="Simulation domain radius-y (m)"),
+    zmax: float = typer.Option(0.01, help="Simulation domain radius-z (m)"),
 ) -> None:
     """Run the 3D Aerosol Transport Simulation via CLI."""
     if num_particles <= 0:
@@ -62,7 +65,7 @@ def main(
 
     if optimize:
         typer.secho(
-            f"🚀 Deploying Agentic Benchmark (Optuna) over {trials} Trials...",
+            f"[OPTIMIZING] Deploying Agentic Benchmark (Optuna) over {trials} Trials...",
             fg=typer.colors.MAGENTA,
             bold=True,
         )
@@ -82,23 +85,23 @@ def main(
 
     typer.echo("Initializing PSAT (3D Particle Simulation for Aerosol Transport)...")
 
-    # Domain: Length 10cm (x: 0 to 0.1m), Cylinder radius 1cm (y, z: -0.01 to 0.01)
-    domain_limits = ((0.0, 0.1), (-0.01, 0.01), (-0.01, 0.01))
+    # Domain: Length configurable (x: 0 to xmax), Radius configurable (y, z: -ymax to ymax)
+    domain_limits = ((0.0, xmax), (-ymax, ymax), (-zmax, zmax))
 
     save_traj = visualize in ["plot", "animate"]
 
     # Resolve velocity field (before sim construction)
     if cfd_file:
-        from psat.cfd_loader import detect_and_load
+        from psat.cfd_loader import detect_and_load, wrap_steady_flow
 
         try:
-            flow_func = detect_and_load(cfd_file)
-            typer.secho(f"\u2705 CFD field loaded: {cfd_file}", fg=typer.colors.CYAN)
+            flow_func = wrap_steady_flow(detect_and_load(cfd_file))
+            typer.secho(f"[CFD LOADED] CFD field: {cfd_file}", fg=typer.colors.CYAN)
         except Exception as exc:  # noqa: BLE001
             typer.secho(f"Failed to load CFD file: {exc}", fg=typer.colors.RED)
             raise typer.Exit(code=1)
     else:
-        flow_func = lambda x, y, z: bifurcating_flow_3d(x, y, z, L1=l1, theta=theta)  # noqa: E731
+        flow_func = lambda x, y, z, t: bifurcating_flow_3d(x, y, z, L1=l1, theta=theta, t=t)  # noqa: E731
 
     try:
         sim = AerosolSimulation(
@@ -191,7 +194,7 @@ def main(
         if len(deposited_positions) < 2:
             typer.secho("Not enough deposited particles for clustering.", fg=typer.colors.YELLOW)
         else:
-            typer.echo("🔬 Running hierarchical hot-spot clustering...")
+            typer.echo("[ANALYTICS] Running hierarchical hot-spot clustering...")
             sample_pos, labels = compute_hierarchical_clusters(deposited_positions)
             generate_dendrogram(sample_pos, save_path="cluster_dendrogram.png")
             fig = plot_deposition_clusters_plotly(sample_pos, labels, domain_limits)
