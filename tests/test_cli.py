@@ -98,3 +98,43 @@ def test_cli_analytics_insufficient_deposits(tmp_path, monkeypatch):
         )
     assert result.exit_code == 0, result.stdout
     assert "Not enough deposited particles" in result.stdout
+
+
+def test_cli_cfd_file_happy_path(tmp_path, monkeypatch):
+    """Cover the --cfd-file happy path (lines 91-96)."""
+    monkeypatch.chdir(tmp_path)
+
+    # 1. Create a dummy CFD CSV
+    import pandas as pd
+
+    coords = [(x, y, z) for x in [0.0, 0.1] for y in [-0.01, 0.01] for z in [-0.01, 0.01]]
+    df = pd.DataFrame(coords, columns=["x", "y", "z"])
+    df["ux"] = 0.5
+    df["uy"] = 0.0
+    df["uz"] = 0.0
+    cfd_path = tmp_path / "flow.csv"
+    df.to_csv(cfd_path, index=False)
+
+    # 2. Invoke CLI
+    result = runner.invoke(
+        app,
+        [
+            "--num-particles",
+            "10",
+            "--time",
+            "0.01",
+            "--cfd-file",
+            str(cfd_path),
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert "CFD field loaded" in result.stdout
+
+
+def test_cli_cfd_file_load_failure(tmp_path, monkeypatch):
+    """Cover the --cfd-file failure path (lines 98-99)."""
+    monkeypatch.chdir(tmp_path)
+    # Use a non-existent file
+    result = runner.invoke(app, ["--cfd-file", "non_existent.csv"])
+    assert result.exit_code == 1, result.stdout
+    assert "Failed to load CFD file" in result.stdout
