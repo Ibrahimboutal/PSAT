@@ -230,6 +230,9 @@ class AerosolSimulation:
         Turbulent eddy diffusivity added to Brownian diffusion (m²/s).
     save_trajectories : bool, optional
         If True, saves full (n_steps × N × 3) position history for animation.
+    hygroscopic_growth_rate : float, optional
+        Relative rate of diameter growth (1/s). Default 0.0 (no growth).
+        e.g., 0.1 means 10% growth per second.
     """
 
     def __init__(
@@ -249,6 +252,7 @@ class AerosolSimulation:
         q_charges: int = 0,
         eddy_diffusivity: float = 0.0,
         save_trajectories: bool = False,
+        hygroscopic_growth_rate: float = 0.0,
     ) -> None:
         if num_particles <= 0:
             raise ValueError("Number of particles must be strictly positive.")
@@ -266,6 +270,9 @@ class AerosolSimulation:
         self.total_time = total_time
         self.n_steps = int(total_time / dt)
         self.domain_limits = domain_limits
+        self.growth_rate = hygroscopic_growth_rate
+        self.eddy_diff = eddy_diffusivity
+        self.q_charges = q_charges
 
         self.T = T
         self.mu = mu
@@ -385,6 +392,25 @@ class AerosolSimulation:
         active: np.ndarray = ~self.is_deposited
         if not np.any(active):
             return
+
+        # ── Hygroscopic Growth (Update diameter and dependencies if rate > 0) ──
+        if self.growth_rate > 0:
+            # d_new = d_old * (1 + rate * dt)
+            self.dp[active] *= 1.0 + self.growth_rate * self.dt
+
+            # Recalculate derived physics for active particles
+            knudsen = 2 * lambda_air / self.dp[active]
+            self.Cc[active] = 1 + knudsen * (1.257 + 0.4 * np.exp(-1.1 / knudsen))
+            self.tau[active] = (self.rho_p * self.dp[active] ** 2 * self.Cc[active]) / (
+                18 * self.mu
+            )
+
+            d_brownian = (k_B * self.T * self.Cc[active]) / (3 * np.pi * self.mu * self.dp[active])
+            self.D_total[active] = d_brownian + self.eddy_diff
+
+            self.Z_mobility[active] = (self.q_charges * e_charge * self.Cc[active]) / (
+                3 * np.pi * self.mu * self.dp[active]
+            )
 
         x_act = self.positions[active, 0]
         y_act = self.positions[active, 1]

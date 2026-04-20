@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from psat.cfd_loader import FlowField, detect_and_load, load_csv_flow
+from psat.cfd_loader import FlowField, RegularFlowField, detect_and_load, load_csv_flow
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ def test_load_csv_returns_flow_field(tmp_path):
     csv = tmp_path / "field.csv"
     _write_uniform_csv(csv)
     flow = load_csv_flow(csv)
-    assert isinstance(flow, FlowField)
+    assert isinstance(flow, (FlowField, RegularFlowField))
 
 
 def test_load_csv_uniform_flow_interior(tmp_path):
@@ -91,7 +91,7 @@ def test_detect_and_load_csv(tmp_path):
     csv = tmp_path / "flow.csv"
     _write_uniform_csv(csv)
     flow = detect_and_load(csv)
-    assert isinstance(flow, FlowField)
+    assert isinstance(flow, (FlowField, RegularFlowField))
 
 
 def test_detect_and_load_unsupported_extension(tmp_path):

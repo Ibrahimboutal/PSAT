@@ -44,6 +44,14 @@ with st.sidebar:
     num_particles = st.slider("Number of particles", 50, 2000, 300, step=50)
     mean_diameter_um = st.slider("Mean diameter (µm)", 0.1, 10.0, 5.0, step=0.1)
     geo_std_dev = st.slider("Geometric std dev (1.0 = monodisperse)", 1.0, 3.0, 1.5, step=0.1)
+    growth_rate = st.slider(
+        "Hygroscopic growth rate (1/s)",
+        0.0,
+        1.0,
+        0.0,
+        step=0.01,
+        help="Simulates particle swelling in humid lungs (e.g. 0.05 = 5% growth per sec)",
+    )
 
     st.subheader("Simulation Setup")
     total_time = st.slider("Simulation time (s)", 0.1, 2.0, 0.4, step=0.05)
@@ -63,6 +71,7 @@ with st.sidebar:
             "VTK/VTU requires pyvista (pip install psat[cfd])."
         ),
     )
+    cfd_scale = st.number_input("CFD Spatial Scale (e.g. 0.001 for mm)", value=1.0, format="%.4f")
 
     st.subheader("Outputs")
     generate_3d_plot = st.checkbox("Generate interactive 3D trajectories (slower)", value=False)
@@ -98,7 +107,7 @@ else:
             tmp.write(cfd_file.read())
             tmp_path = tmp.name
         try:
-            flow_func = wrap_steady_flow(detect_and_load(tmp_path))
+            flow_func = wrap_steady_flow(detect_and_load(tmp_path, scale=cfd_scale))
             st.sidebar.success(f"✅ CFD field loaded: {cfd_file.name}")
         except Exception as exc:
             st.error(f"Failed to load CFD file: {exc}")
@@ -122,6 +131,7 @@ else:
             eddy_diffusivity=eddy_diff,
             fluid_velocity_func=flow_func,
             save_trajectories=generate_3d_plot,
+            hygroscopic_growth_rate=growth_rate,
         )
         sim.initialize_particles()
         sim.run()

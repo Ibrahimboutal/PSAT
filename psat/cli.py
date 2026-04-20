@@ -54,6 +54,12 @@ def main(
     xmax: float = typer.Option(0.1, help="Simulation domain length (m)"),
     ymax: float = typer.Option(0.01, help="Simulation domain radius-y (m)"),
     zmax: float = typer.Option(0.01, help="Simulation domain radius-z (m)"),
+    growth_rate: float = typer.Option(
+        0.0, help="Hygroscopic growth rate (relative increase per sec)"
+    ),
+    cfd_scale: float = typer.Option(
+        1.0, help="Scaling factor for CFD spatial units (e.g. 0.001 for mm to m)"
+    ),
 ) -> None:
     """Run the 3D Aerosol Transport Simulation via CLI."""
     if num_particles <= 0:
@@ -95,8 +101,10 @@ def main(
         from psat.cfd_loader import detect_and_load, wrap_steady_flow
 
         try:
-            flow_func = wrap_steady_flow(detect_and_load(cfd_file))
-            typer.secho(f"[CFD LOADED] CFD field: {cfd_file}", fg=typer.colors.CYAN)
+            flow_func = wrap_steady_flow(detect_and_load(cfd_file, scale=cfd_scale))
+            typer.secho(
+                f"[CFD LOADED] CFD field: {cfd_file} (Scale: {cfd_scale})", fg=typer.colors.CYAN
+            )
         except Exception as exc:  # noqa: BLE001
             typer.secho(f"Failed to load CFD file: {exc}", fg=typer.colors.RED)
             raise typer.Exit(code=1)
@@ -117,6 +125,7 @@ def main(
             eddy_diffusivity=eddy_diff,
             fluid_velocity_func=flow_func,
             save_trajectories=save_traj,
+            hygroscopic_growth_rate=growth_rate,
         )
     except Exception as e:
         typer.secho(f"Initialization Failed: {e}", fg=typer.colors.RED)
