@@ -38,3 +38,14 @@ ehthumbs_vista.db
 ._*
 .Spotlight-V100
 .Trashes
+
+# build files
+build/
+*.egg-info/
+
+# C++ extension files
+psat/cpp_ext/
+
+# pybind11
+psat/cpp_ext/pybind11/
+
