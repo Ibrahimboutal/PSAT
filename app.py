@@ -41,7 +41,7 @@ with st.sidebar:
     st.header("⚙️ Simulation Parameters")
 
     st.subheader("Particle Properties")
-    num_particles = st.slider("Number of particles", 50, 2000, 300, step=50)
+    num_particles = st.slider("Number of particles", 50, 5000, 1500, step=50)
     mean_diameter_um = st.slider("Mean diameter (µm)", 0.1, 10.0, 5.0, step=0.1)
     geo_std_dev = st.slider("Geometric std dev (1.0 = monodisperse)", 1.0, 3.0, 1.5, step=0.1)
     growth_rate = st.slider(

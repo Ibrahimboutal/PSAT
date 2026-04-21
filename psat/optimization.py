@@ -18,6 +18,11 @@ def objective(trial: optuna.Trial, num_particles: int = 500, total_time: float =
     geo_std_dev = trial.suggest_float("geo_std_dev", 1.0, 3.0)
     q_charges = trial.suggest_int("q_charges", 0, 10)
 
+    # New Advanced Hyperparameters (Thanks to Multi-Threading Headroom)
+    eddy_diff = trial.suggest_float("eddy_diff", 1e-7, 1e-4, log=True)
+    e_field_y = trial.suggest_float("e_field_y", -500.0, 500.0)
+    growth_rate = trial.suggest_float("growth_rate", 0.0, 0.2)
+
     mean_diameter_m = mean_diameter_um * 1e-6
     domain_limits = ((0.0, 0.1), (-0.01, 0.01), (-0.01, 0.01))
 
@@ -30,11 +35,12 @@ def objective(trial: optuna.Trial, num_particles: int = 500, total_time: float =
         mean_diameter=mean_diameter_m,
         geo_std_dev=geo_std_dev,
         grad_T=(0.0, 0.0, 0.0),
-        E_field=(0.0, 0.0, 0.0),
+        E_field=(0.0, e_field_y, 0.0),
         q_charges=q_charges,
-        eddy_diffusivity=0.0,
-        fluid_velocity_func=lambda x, y, z: bifurcating_flow_3d(x, y, z),
+        eddy_diffusivity=eddy_diff,
+        fluid_velocity_func=lambda x, y, z, t=0.0: bifurcating_flow_3d(x, y, z),
         save_trajectories=False,
+        hygroscopic_growth_rate=growth_rate,
     )
 
     # 3. Suppress all but physics
@@ -51,7 +57,7 @@ def objective(trial: optuna.Trial, num_particles: int = 500, total_time: float =
     return score
 
 
-def run_optimization(n_trials: int = 50, num_particles: int = 500) -> optuna.Study:
+def run_optimization(n_trials: int = 150, num_particles: int = 1000) -> optuna.Study:
     """
     Spins up the Bayesian optimization loop over N simulated trials.
     """
