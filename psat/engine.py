@@ -16,10 +16,10 @@ from numba import prange
 # Phase 2 C++ Optimization Extrapolator
 # Try resolving Pybind11 Native headers, falling back onto lightning-fast Numba if uncompiled
 try:
-    import psat_cpp_core
+    from . import psat_cpp_core
 
     CPP_ENABLED = True
-except ImportError:
+except (ImportError, ValueError):
     CPP_ENABLED = False
 
 from psat.cfd_loader import wrap_steady_flow

@@ -192,6 +192,7 @@ psat --num-particles 1000 \
 ---
 
 ## 📁 Outputs
+All generated artifacts are saved to the `outputs/` directory to keep the root clean.
 
 | File               | Description           |
 | ------------------ | --------------------- |
