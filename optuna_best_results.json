@@ -1,8 +1,8 @@
 {
-    "Best Score": 0.7,
+    "Best Score": 0.39999999999999997,
     "Parameters": {
-        "mean_diameter_um": 1.425803304178507,
-        "geo_std_dev": 2.275904847658719,
-        "q_charges": 7
+        "mean_diameter_um": 4.298474256144176,
+        "geo_std_dev": 2.2992571798865415,
+        "q_charges": 4
     }
 }

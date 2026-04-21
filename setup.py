@@ -37,12 +37,17 @@ class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
 
     c_opts = {
-        "msvc": ["/EHsc", "/O2", "/std:c++14"],
-        "unix": ["-O3", "-std=c++14", "-Wall"],
+        "msvc": ["/EHsc", "/O2", "/std:c++14", "/openmp"],
+        "unix": ["-O3", "-std=c++14", "-Wall", "-fopenmp"],
     }
 
     if sys.platform == "darwin":
-        c_opts["unix"] += ["-stdlib=libc++", "-mmacosx-version-min=10.14"]
+        c_opts["unix"] += [
+            "-stdlib=libc++",
+            "-mmacosx-version-min=10.14",
+            "-Xpreprocessor",
+            "-fopenmp",
+        ]
 
     def build_extensions(self):
         ct = self.compiler.compiler_type

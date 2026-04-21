@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 import numba
 import numpy as np
+from numba import prange
 
 # Phase 2 C++ Optimization Extrapolator
 # Try resolving Pybind11 Native headers, falling back onto lightning-fast Numba if uncompiled
@@ -96,7 +97,7 @@ def bifurcating_flow_3d(
 # =========================================================================
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=True, parallel=True)
 def jitted_physics_core_numba(
     x_act: np.ndarray,
     y_act: np.ndarray,
@@ -136,7 +137,7 @@ def jitted_physics_core_numba(
     R_main_sq = R_main**2
     R_branch_sq = R_branch**2
 
-    for i in range(n_active):
+    for i in prange(n_active):
         # Deterministic drift
         v_settling_y = -tau_act[i] * gravity
         total_vx = ux[i] + v_th_x + Z_act[i] * Ex

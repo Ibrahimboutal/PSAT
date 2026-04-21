@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <omp.h>
 #include <random>
 #include <cmath>
 
@@ -42,13 +43,20 @@ void jitted_physics_core_cpp(
     double R_main_sq = R_main * R_main;
     double R_branch_sq = R_branch * R_branch;
 
-    // Standard high-performance C++ MT19937 RNG framework 
-    // initialized safely preventing seed-duplication bugs on threads
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::normal_distribution<double> d(0.0, 1.0);
+    // OpenMP parallel region
+    #pragma omp parallel
+    {
+        // Define RNG locally INSIDE the parallel block
+        // so every thread gets its own isolated state machine
+        std::random_device rd;
+        
+        // Seed uniquely per thread using thread ID to avoid identical trajectories
+        std::mt19937 gen(rd() ^ omp_get_thread_num()); 
+        std::normal_distribution<double> d(0.0, 1.0);
 
-    for (int i = 0; i < n_active; ++i) {
+        // Distribute the loop iterations across threads
+        #pragma omp for
+        for (int i = 0; i < n_active; ++i) {
         // Drift Physics
         double v_settling_y = -tau_act(i) * gravity;
         double total_vx = ux(i) + v_th_x + Z_act(i) * Ex;
@@ -95,6 +103,7 @@ void jitted_physics_core_cpp(
         z_new(i) = nz;
         hit_wall(i) = hw;
         hit_bottom(i) = hb;
+    }
     }
 }
 
