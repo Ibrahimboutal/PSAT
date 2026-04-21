@@ -97,10 +97,22 @@ def test_engine_numba_fallback():
             num_particles=100,
             dt=0.01,
             total_time=0.1,
-            domain_limits=((0, 0), (0, 0), (0, 0)),
+            domain_limits=((0, 0.1), (-0.1, 0.1), (-0.1, 0.1)),
             save_trajectories=True,
         )
         sim.initialize_particles()
+
+        # Particle 1: Trigger branch detector logic (nx > L1) cleanly
+        sim.positions[0, 0] = 0.06
+        sim.positions[0, 1] = 0.05
+
+        # Particle 2: Trigger main pipe wall collision (nx <= L1, r >= R_main)
+        sim.positions[1, 0] = 0.01
+        sim.positions[1, 1] = 1.0  # Immense radius to guarantee wall hit
+
+        # Particle 3: Trigger bottom hit (nx >= xmax)
+        sim.positions[2, 0] = 0.2  # Past domain limits
+
         sim.run()
         assert len(sim.trajectories) > 0
     finally:
@@ -126,6 +138,24 @@ def test_engine_edge_cases():
     with pytest.raises(ValueError):
         AerosolSimulation(
             num_particles=0, dt=0.01, total_time=0.1, domain_limits=((0, 0), (0, 0), (0, 0))
+        )
+
+    with pytest.raises(ValueError):
+        AerosolSimulation(
+            num_particles=10,
+            dt=0.01,
+            total_time=0.1,
+            domain_limits=((0, 0), (0, 0), (0, 0)),
+            mean_diameter=-1.0,
+        )
+
+    with pytest.raises(ValueError):
+        AerosolSimulation(
+            num_particles=10,
+            dt=0.01,
+            total_time=0.1,
+            domain_limits=((0, 0), (0, 0), (0, 0)),
+            geo_std_dev=0.5,
         )
 
     # Trigger all particles deposited early loop break
