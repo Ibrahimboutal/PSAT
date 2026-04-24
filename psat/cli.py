@@ -60,6 +60,9 @@ def main(
     cfd_scale: float = typer.Option(
         1.0, help="Scaling factor for CFD spatial units (e.g. 0.001 for mm to m)"
     ),
+    generations: int = typer.Option(1, help="Number of airway generations (Weibel model)"),
+    scaling: float = typer.Option(0.85, help="Scaling factor for branch length/radius per gen"),
+    turbulence: float = typer.Option(0.0, help="Coefficient for bifurcation-induced turbulence"),
 ) -> None:
     """Run the 3D Aerosol Transport Simulation via CLI."""
     if num_particles <= 0:
@@ -126,6 +129,9 @@ def main(
             fluid_velocity_func=flow_func,
             save_trajectories=save_traj,
             hygroscopic_growth_rate=growth_rate,
+            n_generations=generations,
+            scaling_factor=scaling,
+            turbulence_alpha=turbulence,
         )
     except Exception as e:
         typer.secho(f"Initialization Failed: {e}", fg=typer.colors.RED)

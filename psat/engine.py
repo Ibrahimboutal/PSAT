@@ -13,8 +13,6 @@ import numba
 import numpy as np
 from numba import prange
 
-# Phase 2 C++ Optimization Extrapolator
-# Try resolving Pybind11 Native headers, falling back onto lightning-fast Numba if uncompiled
 try:
     from . import psat_cpp_core
 
@@ -27,6 +25,79 @@ from psat.constants import e_charge, g, k_B, lambda_air
 
 # Type alias for 3-component float tuples used throughout
 Vec3 = tuple[float, float, float]
+
+
+def generate_weibel_tree(
+    n_generations: int,
+    initial_length: float = 0.05,
+    initial_radius: float = 0.01,
+    theta: float = np.pi / 6,
+    scaling: float = 0.85,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Generate a recursive bifurcating tree structure (Weibel model).
+
+    Returns a tuple of arrays describing the branches:
+    (starts, directions, lengths, radii, child_left, child_right)
+    """
+    n_branches = 2**n_generations - 1
+    starts = np.zeros((n_branches, 3))
+    directions = np.zeros((n_branches, 3))
+    lengths = np.zeros(n_branches)
+    radii = np.zeros(n_branches)
+    child_left = np.full(n_branches, -1, dtype=np.int32)
+    child_right = np.full(n_branches, -1, dtype=np.int32)
+
+    # Generation 0: Trachea
+    starts[0] = [0, 0, 0]
+    directions[0] = [1, 0, 0]
+    lengths[0] = initial_length
+    radii[0] = initial_radius
+
+    curr_idx = 1
+    for i in range(2 ** (n_generations - 1) - 1):
+        # Current branch parameters
+        p_start = starts[i]
+        p_dir = directions[i]
+        p_len = lengths[i]
+        p_rad = radii[i]
+        p_end = p_start + p_dir * p_len
+
+        # Child scaling
+        c_len = p_len * scaling
+        c_rad = p_rad * scaling
+
+        child_left[i] = curr_idx
+        child_right[i] = curr_idx + 1
+
+        # Calculate child directions (simple 2D branching for now)
+        # In a real lung, these rotate, but let's stick to a planar tree first
+        # Rotate parent direction by +/- theta around Z-axis
+        cos_t = np.cos(theta)
+        sin_t = np.sin(theta)
+
+        # Left child (up)
+        starts[curr_idx] = p_end
+        directions[curr_idx] = [
+            p_dir[0] * cos_t - p_dir[1] * sin_t,
+            p_dir[0] * sin_t + p_dir[1] * cos_t,
+            p_dir[2],
+        ]
+        lengths[curr_idx] = c_len
+        radii[curr_idx] = c_rad
+
+        # Right child (down)
+        starts[curr_idx + 1] = p_end
+        directions[curr_idx + 1] = [
+            p_dir[0] * cos_t + p_dir[1] * sin_t,
+            -p_dir[0] * sin_t + p_dir[1] * cos_t,
+            p_dir[2],
+        ]
+        lengths[curr_idx + 1] = c_len
+        radii[curr_idx + 1] = c_rad
+
+        curr_idx += 2
+
+    return starts, directions, lengths, radii, child_left, child_right
 
 
 def bifurcating_flow_3d(
@@ -106,8 +177,15 @@ def jitted_physics_core_numba(
     uy: np.ndarray,
     uz: np.ndarray,
     tau_act: np.ndarray,
-    D_act: np.ndarray,
+    D_brownian: np.ndarray,
     Z_act: np.ndarray,
+    branch_ids: np.ndarray,
+    tree_starts: np.ndarray,
+    tree_dirs: np.ndarray,
+    tree_lens: np.ndarray,
+    tree_radii: np.ndarray,
+    child_left: np.ndarray,
+    child_right: np.ndarray,
     v_th_x: float,
     v_th_y: float,
     v_th_z: float,
@@ -119,8 +197,9 @@ def jitted_physics_core_numba(
     xmin: float,
     xmax: float,
     ymax: float,
-    L1: float,
-    theta: float,
+    turb_alpha: float,
+    mu: float,
+    rho_f: float,
     x_new: np.ndarray,
     y_new: np.ndarray,
     z_new: np.ndarray,
@@ -129,23 +208,39 @@ def jitted_physics_core_numba(
 ) -> None:
     n_active = len(x_act)
 
-    R_main = ymax
-    R_branch = R_main / np.sqrt(2.0)
-    cos_theta = np.cos(theta)
-    tan_theta = np.tan(theta)
-
-    R_main_sq = R_main**2
-    R_branch_sq = R_branch**2
-
     for i in prange(n_active):
-        # Deterministic drift
+        b_idx = branch_ids[i]
+        b_start = tree_starts[b_idx]
+        b_dir = tree_dirs[b_idx]
+        b_len = tree_lens[b_idx]
+        b_rad = tree_radii[b_idx]
+
+        # ── Turbulence Model ──────────────────────────────────────────────────
+        # Calculate local Reynolds number
+        v_mag = np.sqrt(ux[i] ** 2 + uy[i] ** 2 + uz[i] ** 2)
+        Re = (rho_f * v_mag * (2.0 * b_rad)) / mu
+
+        # Distance from bifurcation (p - start) . dir
+        dist_from_bif = (
+            (x_act[i] - b_start[0]) * b_dir[0]
+            + (y_act[i] - b_start[1]) * b_dir[1]
+            + (z_act[i] - b_start[2]) * b_dir[2]
+        )
+
+        # Turbulence decays into the branch
+        # D_eddy = alpha * Re * exp(-x / 5R)
+        decay_len = 5.0 * b_rad
+        D_eddy = turb_alpha * Re * np.exp(-max(0.0, dist_from_bif) / decay_len)
+        D_total = D_brownian[i] + D_eddy
+
+        # ── Deterministic drift ──────────────────────────────────────────────
         v_settling_y = -tau_act[i] * gravity
         total_vx = ux[i] + v_th_x + Z_act[i] * Ex
         total_vy = uy[i] + v_th_y + Z_act[i] * Ey + v_settling_y
         total_vz = uz[i] + v_th_z + Z_act[i] * Ez
 
-        # Stochastic (Brownian / eddy) diffusion
-        sigma = np.sqrt(2.0 * D_act[i] * dt)
+        # ── Stochastic diffusion ──────────────────────────────────────────────
+        sigma = np.sqrt(2.0 * D_total * dt)
         dW_x = np.random.normal(0.0, 1.0) * sigma
         dW_y = np.random.normal(0.0, 1.0) * sigma
         dW_z = np.random.normal(0.0, 1.0) * sigma
@@ -154,26 +249,39 @@ def jitted_physics_core_numba(
         ny = y_act[i] + total_vy * dt + dW_y
         nz = z_act[i] + total_vz * dt + dW_z
 
-        # Boundary detection
+        # ── Boundary detection ────────────────────────────────────────────────
         hw = False
         hb = False
 
-        if nx <= L1:
-            if ny**2 + nz**2 >= R_main_sq:
-                hw = True
-        else:
-            xb = nx - L1
-            yc_up = xb * tan_theta
-            yc_down = -xb * tan_theta
+        # Vector from start to new position
+        vp_x = nx - b_start[0]
+        vp_y = ny - b_start[1]
+        vp_z = nz - b_start[2]
 
-            dist_up2 = (ny - yc_up) ** 2 * cos_theta**2 + nz**2
-            dist_down2 = (ny - yc_down) ** 2 * cos_theta**2 + nz**2
+        # Axial projection
+        proj = vp_x * b_dir[0] + vp_y * b_dir[1] + vp_z * b_dir[2]
 
-            if dist_up2 >= R_branch_sq and dist_down2 >= R_branch_sq:
-                hw = True
+        # Radial distance squared
+        dist_sq = (vp_x**2 + vp_y**2 + vp_z**2) - proj**2
 
-        if nx >= xmax:
-            hb = True
+        if dist_sq >= b_rad**2:
+            hw = True
+
+        # Branch transition
+        if proj >= b_len:
+            left = child_left[b_idx]
+            right = child_right[b_idx]
+            if left == -1:
+                hb = True
+            else:
+                # Determine which child based on transverse offset
+                # For planar Y-branch, child directions differ in Y
+                # nx_rel, ny_rel is relative to parent axis
+                # Simplified: use Y coordinate relative to bifurcation point
+                if ny >= (b_start[1] + b_dir[1] * b_len):
+                    branch_ids[i] = left
+                else:
+                    branch_ids[i] = right
 
         x_new[i] = nx
         y_new[i] = ny
@@ -234,6 +342,12 @@ class AerosolSimulation:
     hygroscopic_growth_rate : float, optional
         Relative rate of diameter growth (1/s). Default 0.0 (no growth).
         e.g., 0.1 means 10% growth per second.
+    n_generations : int, optional
+        Number of airway generations (1 = single pipe, 2 = one bifurcation, etc.). Default 1.
+    scaling_factor : float, optional
+        Scaling factor for branch length and radius per generation. Default 0.85.
+    turbulence_alpha : float, optional
+        Coefficient for bifurcation-induced turbulence. Default 0.0.
     """
 
     def __init__(
@@ -254,6 +368,9 @@ class AerosolSimulation:
         eddy_diffusivity: float = 0.0,
         save_trajectories: bool = False,
         hygroscopic_growth_rate: float = 0.0,
+        n_generations: int = 1,
+        scaling_factor: float = 0.85,
+        turbulence_alpha: float = 0.0,
     ) -> None:
         if num_particles <= 0:
             raise ValueError("Number of particles must be strictly positive.")
@@ -274,10 +391,24 @@ class AerosolSimulation:
         self.growth_rate = hygroscopic_growth_rate
         self.eddy_diff = eddy_diffusivity
         self.q_charges = q_charges
+        self.n_generations = n_generations
+        self.scaling_factor = scaling_factor
+        self.turb_alpha = turbulence_alpha
 
         self.T = T
         self.mu = mu
+        self.rho_f = 1.204  # Air density at 20C, kg/m3
         self.rho_p = particle_density
+
+        # ── Geometry Tree ────────────────────────────────────────────────────
+        ((xmin, xmax), (ymin, ymax), (zmin, zmax)) = domain_limits
+        self.tree = generate_weibel_tree(
+            n_generations,
+            initial_length=(xmax - xmin) / 2.0 if n_generations > 1 else (xmax - xmin),
+            initial_radius=ymax,
+            scaling=scaling_factor,
+        )
+        # starts, directions, lengths, radii, child_left, child_right
 
         # ── Polydisperse particle size distribution (log-normal) ─────────────
         if geo_std_dev <= 1.0:
@@ -331,6 +462,7 @@ class AerosolSimulation:
 
         # ── Particle state arrays ────────────────────────────────────────────
         self.positions: np.ndarray = np.zeros((self.N, 3))
+        self.current_branch: np.ndarray = np.zeros(self.N, dtype=np.int32)
         self.is_deposited: np.ndarray = np.zeros(self.N, dtype=bool)
         self.wall_deposit: np.ndarray = np.zeros(self.N, dtype=bool)
         self.bottom_deposit: np.ndarray = np.zeros(self.N, dtype=bool)
@@ -442,8 +574,15 @@ class AerosolSimulation:
             uy,
             uz,
             self.tau[active],
-            self.D_total[active],
+            self.D_brownian[active],
             self.Z_mobility[active],
+            self.current_branch[active],
+            self.tree[0],  # starts
+            self.tree[1],  # dirs
+            self.tree[2],  # lens
+            self.tree[3],  # radii
+            self.tree[4],  # left
+            self.tree[5],  # right
             np.float64(self.v_th[0]),
             np.float64(self.v_th[1]),
             np.float64(self.v_th[2]),
@@ -455,8 +594,9 @@ class AerosolSimulation:
             xmin,
             xmax,
             ymax,
-            L1,
-            theta,
+            self.turb_alpha,
+            self.mu,
+            self.rho_f,
             x_new,
             y_new,
             z_new,

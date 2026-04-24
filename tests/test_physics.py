@@ -15,7 +15,8 @@ def test_terminal_velocity():
         fluid_velocity_func=lambda x, y, z: (np.zeros_like(x), np.zeros_like(y), np.zeros_like(z)),
         eddy_diffusivity=0.0,
     )
-    sim.D_total[:] = 0.0  # Turn off Brownian motion for a deterministic test
+    sim.D_total[:] = 0.0
+    sim.D_brownian[:] = 0.0  # Turn off Brownian motion for a deterministic test
 
     sim.initialize_particles(
         x_coords=np.array([0.0]), y_coords=np.array([0.0]), z_coords=np.array([0.0])
@@ -69,7 +70,8 @@ def test_deterministic_bounds_no_diffusion():
         ),
         eddy_diffusivity=0.0,
     )
-    sim.D_total[:] = 0.0  # Force zero diffusion
+    sim.D_total[:] = 0.0
+    sim.D_brownian[:] = 0.0  # Force zero diffusion
 
     # Start all particles precisely at the same spot
     x_init = np.zeros(10)

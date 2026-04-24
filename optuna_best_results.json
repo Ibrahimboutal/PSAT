@@ -1,11 +1,11 @@
 {
-    "Best Score": 0.10000000000000003,
+    "Best Score": -1.0,
     "Parameters": {
-        "mean_diameter_um": 9.312681235343515,
-        "geo_std_dev": 1.2930518865849538,
-        "q_charges": 0,
-        "eddy_diff": 3.1587697301725866e-06,
-        "e_field_y": 368.6899456286716,
-        "growth_rate": 0.08777711943411784
+        "mean_diameter_um": 2.419950975815391,
+        "geo_std_dev": 2.9272289900513337,
+        "q_charges": 4,
+        "eddy_diff": 9.813409259669727e-05,
+        "e_field_y": -487.6889739464306,
+        "growth_rate": 0.034500531261557325
     }
 }

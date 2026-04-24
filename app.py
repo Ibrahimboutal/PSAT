@@ -54,8 +54,22 @@ with st.sidebar:
     )
 
     st.subheader("Simulation Setup")
-    total_time = st.slider("Simulation time (s)", 0.1, 2.0, 0.4, step=0.05)
-    eddy_diff = st.number_input("Eddy diffusivity (m²/s)", value=0.0, format="%.2e", step=1e-6)
+    total_time = st.slider("Simulation time (s)", 0.1, 5.0, 0.4, step=0.1)
+    eddy_diff = st.number_input("Base eddy diffusivity (m²/s)", value=0.0, format="%.2e", step=1e-6)
+
+    st.subheader("Airway Geometry")
+    generations = st.slider(
+        "Airway Generations (Weibel Model)", 1, 10, 2, help="1=pipe, 2=one bifurcation, etc."
+    )
+    scaling_factor = st.slider("Tree Scaling Factor", 0.5, 1.0, 0.85, step=0.01)
+    turb_alpha = st.slider(
+        "Bifurcation Turbulence (α)",
+        0.0,
+        1.0,
+        0.0,
+        step=0.05,
+        help="Scales eddy diffusivity near branch points based on local Reynolds number.",
+    )
 
     st.subheader("Advanced Forces")
     grad_T_x = st.number_input("∇T  x-component (K/m)", value=0.0, step=10.0)
@@ -132,6 +146,9 @@ else:
             fluid_velocity_func=flow_func,
             save_trajectories=generate_3d_plot,
             hygroscopic_growth_rate=growth_rate,
+            n_generations=generations,
+            scaling_factor=scaling_factor,
+            turbulence_alpha=turb_alpha,
         )
         sim.initialize_particles()
         sim.run()

@@ -41,6 +41,8 @@ def objective(trial: optuna.Trial, num_particles: int = 500, total_time: float =
         fluid_velocity_func=lambda x, y, z, t=0.0: bifurcating_flow_3d(x, y, z),
         save_trajectories=False,
         hygroscopic_growth_rate=growth_rate,
+        n_generations=2,
+        turbulence_alpha=0.1,
     )
 
     # 3. Suppress all but physics

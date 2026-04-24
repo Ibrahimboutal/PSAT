@@ -34,6 +34,8 @@ Interact with the simulation directly in your browser:
 * ⚡ **3x Multi-Threaded Acceleration** via OpenMP & Numba Prange
 * 🧠 Implements **Euler–Maruyama stochastic integration**
 * 🌬️ Models real forces: diffusion, gravity, thermophoresis, electrostatics
+* 🌳 **Multi-Generation Airway Tree** (Weibel Model support)
+* 🌪️ **Bifurcation-Induced Turbulence** (Reynolds-dependent eddy diffusivity)
 * 🌐 **Interactive Streamlit UI + CLI**
 * 📊 Real-time trajectory & deposition visualization
 * 🧪 CI/CD with testing, linting, and coverage
@@ -54,9 +56,38 @@ PSAT provides a **fast, interactive alternative** to expensive experimental setu
 
 ## 🧩 System Architecture
 
-The system is designed as a layered simulation pipeline separating user interaction, computation, and physics modeling.
-
-![PSAT Architecture](psat_architecture_next_level.png)
+```mermaid
+graph TD
+    User([User]) --> UI[Streamlit Web App]
+    User --> CLI[Typer CLI]
+    
+    subgraph Engine [PSAT Simulation Engine]
+        Orchestrator[Simulation Orchestrator]
+        Geometry[Recursive Tree Generator]
+        
+        subgraph Physics [Physics Core]
+            Numba[Numba JIT Loop]
+            CPP[C++ OpenMP Loop]
+        end
+        
+        SDE[Euler-Maruyama SDE Integration]
+        Turbulence[Turbulence & Force Modeling]
+    end
+    
+    UI --> Orchestrator
+    CLI --> Orchestrator
+    
+    Orchestrator --> Geometry
+    Orchestrator --> Physics
+    Physics --> SDE
+    Physics --> Turbulence
+    
+    Orchestrator --> Analytics[Clustering & Stats]
+    Orchestrator --> Viz[Visualization Module]
+    
+    Viz --> Plots[Plots & Animations]
+    Analytics --> HotSpots[Deposition Hot-Spots]
+```
 
 ---
 
@@ -67,8 +98,9 @@ The system is designed as a layered simulation pipeline separating user interact
 | **Physics model**         | 3D Euler-Maruyama SDE with diffusion, gravity, thermophoresis, electrostatics |
 | **Particle distribution** | Polydisperse log-normal distribution                                          |
 | **Slip correction**       | Cunningham factor for nano-particles                                          |
-| **Flow field**            | Poiseuille flow → Y-bifurcation                                               |
-| **Performance**           | Compiled with Numba (LLVM → native code)                                      |
+| **Airway Geometry**       | **Multi-generation recursive tree (Weibel Model)**                            |
+| **Turbulence**           | **Bifurcation-induced Reynolds-dependent eddy diffusivity**                   |
+| **Performance**           | Compiled with Numba (LLVM → native code) or C++ OpenMP                        |
 | **Interfaces**            | CLI + Streamlit                                                               |
 | **CI/CD**                 | GitHub Actions (tests, lint, coverage)                                        |
 
